@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Place this file at:  app/src/main/res/xml/automotive_app_desc.xml
+
+    This tells Android Auto (and Automotive OS) that this app provides
+    audio media.  "media" is the only feature needed for a music player.
+-->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>

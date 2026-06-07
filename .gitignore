@@ -1,0 +1,45 @@
+# =========================
+# SECRETS (NEVER UPLOAD)
+# =========================
+client_secret.json
+oauth.json
+*.jks
+*.keystore
+
+# =========================
+# Android & Gradle
+# =========================
+.gradle/
+local.properties
+*.iml
+build/
+app/build/
+*/build/
+
+# =========================
+# Python & Scripts
+# =========================
+__pycache__/
+*.pyc
+venv/
+.env/
+
+# =========================
+# IDEs & Caches
+# =========================
+.buildozer/
+.cache/
+.idea/
+.vscode/
+
+# =========================
+# Executables & Binaries
+# =========================
+*.exe
+downloads/
+
+# Block ALL caches
+caches/
+**/caches/
+.caches/
+**/.caches/

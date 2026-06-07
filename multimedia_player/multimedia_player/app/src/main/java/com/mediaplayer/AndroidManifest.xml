@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ── Storage ──────────────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- ── Playback ─────────────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+        ── Android Auto ─────────────────────────────────────────────────────
+        Declare that this app provides audio media for Auto.
+        The <automotive_app_desc> meta-data points Auto to our feature list.
+    -->
+    <uses-feature
+        android:name="android.hardware.type.automotive"
+        android:required="false" />
+
+    <application
+        android:name=".MediaPlayerApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MediaPlayer">
+
+        <!--
+            Android Auto app descriptor.
+            Create  res/xml/automotive_app_desc.xml  with:
+
+            <?xml version="1.0" encoding="utf-8"?>
+            <automotiveApp>
+                <uses name="media" />
+            </automotiveApp>
+        -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            ── Media playback service ───────────────────────────────────────
+            Changed to MediaLibraryService so Android Auto can browse the
+            library tree.  Both intent filters are required:
+              • androidx.media3.session.MediaLibraryService  → phones / wear
+              • android.media.browse.MediaBrowserService     → Android Auto
+        -->
+        <service
+            android:name=".service.MediaService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+
+            <!-- Media3 phone / wear controller -->
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+            </intent-filter>
+
+            <!-- Android Auto / Automotive OS browser -->
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+
+            <!--
+                Optional but recommended: tell Auto what content style to use
+                for browseable and playable items (list vs grid).
+                CONTENT_STYLE_LIST_ITEM   = 1
+                CONTENT_STYLE_GRID_ITEM   = 2
+            -->
+            <meta-data
+                android:name="android.media.browse.CONTENT_STYLE_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="android.media.browse.CONTENT_STYLE_BROWSABLE_HINT"
+                android:value="1" />
+            <meta-data
+                android:name="android.media.browse.CONTENT_STYLE_PLAYABLE_HINT"
+                android:value="1" />
+        </service>
+
+    </application>
+</manifest>

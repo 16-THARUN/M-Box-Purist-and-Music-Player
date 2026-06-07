@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- The White Slab-Serif 'm' -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 21,75 L 21,72 L 25,72 L 25,35 L 21,35 L 21,32 L 35,32 L 35,72 L 39,72 L 39,75 Z M 43,75 L 43,72 L 47,72 L 47,45 L 57,45 L 57,72 L 61,72 L 61,75 Z M 65,75 L 65,72 L 69,72 L 69,45 L 79,45 L 79,72 L 83,72 L 83,75 Z M 35,55 C 35,22 57,22 57,55 L 47,55 C 47,38 35,38 35,55 Z M 57,55 C 57,22 79,22 79,55 L 69,55 C 69,38 57,38 57,55 Z" />
+
+</vector>
