@@ -1,0 +1,7 @@
+### 🛠️ Step 3: Push it to GitHub
+Once you have saved that file, you just need to run your Git commands one more time to send it up to your repository:
+
+```bash
+git add README.md
+git commit -m "Add project README with features and tech stack"
+git push -u origin main
