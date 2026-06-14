@@ -54,3 +54,27 @@
 3. Install dependencies (if applicable):
 ```bash
    pip install -r requirements.txt
+
+
+
+
+# 🚀 v1.0.5: Premium UI Overhaul & Interactive Vinyl Scrubbing
+
+This major update transforms the player into a premium, audiophile-grade experience. We've introduced highly requested tactile interactions, deep audio pipeline data, and gorgeous dynamic theming.
+
+### ✨ New Features & Enhancements
+
+* **🎛️ Physics-Based DJ Scrubbing:** The `VinylAlbumCover` is now fully interactive. Drag the record to seek tracks forward or backward. Release it, and physics-based inertia will smoothly glide the record back to its standard playback speed.
+* **🎨 Dynamic Material You Theming:** The player now seamlessly extracts colors from the currently playing Album Art using the Android `Palette` API, dynamically coloring the playback controls, seekbar, and UI accents for a cohesive look.
+* **📊 Audiophile "Audio Info" Dashboard:** Tapping the new Codec Badge (e.g., FLAC, OPUS) opens a highly detailed bottom sheet displaying the complete audio processing pipeline—including Decoder, Resampler, DSP, and final hardware Output Device stats.
+* **📱 Adaptive Responsive Layout:** The Now Playing screen has been completely rewritten to provide a "perfect fit" experience across both Portrait (Column) and Landscape (Row) orientations without stretching or clipping the album art.
+* **⏪ Modernized Controls:** Upgraded the playback controls row to feature a clean, high-contrast, modern circular Play/Pause button that perfectly highlights the dynamic track color.
+
+### 🐛 Under the Hood
+* Improved Compose layout weights to handle ultra-wide screens.
+* Implemented safe fallback colors for the Palette API to prevent UI blackout on low-contrast album art.
+* Replaced redundant image loaders to optimize app size (Exclusively using `GlideImage`).
+
+
+
+
