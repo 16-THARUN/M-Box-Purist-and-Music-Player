@@ -1,0 +1,17 @@
+package com.mediaplayer.data.network.lyrics
+
+import com.google.gson.annotations.SerializedName
+
+/**
+ * Represents the response from the LRCLIB API.
+ * Contains track metadata and both plain and synchronized lyrics.
+ */
+data class LrcLibResponse(
+    @SerializedName("id") val id: Long,
+    @SerializedName("trackName") val trackName: String,
+    @SerializedName("artistName") val artistName: String,
+    @SerializedName("albumName") val albumName: String,
+    @SerializedName("duration") val duration: Double,
+    @SerializedName("plainLyrics") val plainLyrics: String?,
+    @SerializedName("syncedLyrics") val syncedLyrics: String?
+)
