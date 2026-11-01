@@ -49,3 +49,18 @@ data class FolderRow(
     val folderPath: String,
     val trackCount: Int
 )
+
+data class YearRow(
+    val year: Int,
+    val trackCount: Int
+)
+
+data class ComposerRow(
+    val composer: String,
+    val trackCount: Int
+)
+
+data class AlbumArtistRow(
+    val albumArtist: String,
+    val trackCount: Int
+)

@@ -14,16 +14,24 @@ android {
         applicationId = "com.mediaplayer"
         minSdk        = 26
         targetSdk     = 35
-        versionCode   = 10
-        versionName   = "1.1.0"
+        versionCode   = 12
+        versionName   = "1.2.0"
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
+        }
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
 
     buildTypes {
         release {
+            ndk {
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
+            }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -34,7 +42,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 kotlin {
@@ -44,6 +55,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.ui.graphics)
     // Media3
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
@@ -53,6 +66,9 @@ dependencies {
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
     ksp(libs.room.compiler)
 
     // Hilt
@@ -63,7 +79,8 @@ dependencies {
     // Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
-    implementation(libs.compose.ui.tooling)
+    implementation(libs.compose.preview)
+    debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.material3)
     implementation(libs.compose.icons.ext)
     implementation(libs.activity.compose)
@@ -101,5 +118,24 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work)
     implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.documentfile)
     ksp(libs.androidx.hilt.compiler)
+
+    // Cast & TV
+    implementation("androidx.media3:media3-cast:1.4.1")
+    implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
+    implementation("androidx.tv:tv-foundation:1.0.0-alpha10")
+    implementation("androidx.tv:tv-material:1.0.0-alpha10")
+
+    // FFmpegKit and missing smart-exception dependency
+    implementation(libs.ffmpeg.kit.audio)
+    implementation("com.arthenica:smart-exception-java:0.2.1")
+
+    // NanoHTTPD Local Audio Server & WebSocket Server for Cast & M-Box TV
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("org.nanohttpd:nanohttpd-websocket:2.3.1")
+
+    // OkHttp for Samsung TV Launcher
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

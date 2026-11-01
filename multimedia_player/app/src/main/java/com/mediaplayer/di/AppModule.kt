@@ -11,7 +11,7 @@ import com.mediaplayer.data.db.LibraryTrackDao
 import com.mediaplayer.data.db.MediaDatabase
 import com.mediaplayer.data.db.PlaylistDao
 import com.mediaplayer.data.db.TrackDao
-import com.mediaplayer.PlaybackService
+import com.mediaplayer.service.MediaService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -51,7 +51,7 @@ object AppModule {
     fun provideMediaBrowserFuture(
         @ApplicationContext ctx: Context
     ): ListenableFuture<MediaBrowser> {
-        val token = SessionToken(ctx, ComponentName(ctx, PlaybackService::class.java))
+        val token = SessionToken(ctx, ComponentName(ctx, MediaService::class.java))
         return MediaBrowser.Builder(ctx, token).buildAsync()
     }
 }

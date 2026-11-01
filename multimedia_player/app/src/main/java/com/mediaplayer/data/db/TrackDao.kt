@@ -42,6 +42,21 @@ interface TrackDao {
     @Query("SELECT genre, COUNT(*) AS trackCount FROM tracks WHERE genre != '' GROUP BY genre ORDER BY genre")
     fun getGenres(): Flow<List<GenreRow>>
 
+    @Query("SELECT year, COUNT(*) AS trackCount FROM tracks WHERE year > 0 GROUP BY year ORDER BY year DESC")
+    fun getYears(): Flow<List<YearRow>>
+
+    @Query("SELECT composer, COUNT(*) AS trackCount FROM tracks WHERE composer != '' GROUP BY composer ORDER BY composer")
+    fun getComposers(): Flow<List<ComposerRow>>
+
+    @Query("SELECT artist AS albumArtist, COUNT(*) AS trackCount FROM tracks GROUP BY artist ORDER BY artist")
+    fun getAlbumArtists(): Flow<List<AlbumArtistRow>>
+
+    @Query("SELECT * FROM tracks WHERE year = :year ORDER BY title")
+    fun getByYear(year: Int): Flow<List<Track>>
+
+    @Query("SELECT * FROM tracks WHERE composer = :composer ORDER BY title")
+    fun getByComposer(composer: String): Flow<List<Track>>
+
     @Query("""
         SELECT folderName, folderPath, COUNT(*) AS trackCount
         FROM tracks

@@ -1,19 +1,21 @@
 package com.mediaplayer.ui.components
 
+import android.graphics.Color
+import android.net.Uri
+import android.view.ContextThemeWrapper
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.annotation.RawRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -21,29 +23,42 @@ import androidx.media3.datasource.RawResourceDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.mediaplayer.R
 
 @OptIn(UnstableApi::class)
 @Composable
 fun LoopingVideoVisualizer(
-    @RawRes videoResId: Int,
-    isPlaying: Boolean, // 🔥 Added parameter
+    videoUrl: String? = null,
+    @RawRes videoResId: Int? = null,
+    isPlaying: Boolean,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
-    // Initialize a lightweight, secondary ExoPlayer instance
-    val exoPlayer = remember {
+    var isFirstFrameRendered by remember { mutableStateOf(false) }
+
+    val videoAlpha by animateFloatAsState(
+        targetValue = if (isFirstFrameRendered) 0.60f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "VideoFadeIn"
+    )
+
+    val exoPlayer = remember(videoUrl, videoResId) {
         ExoPlayer.Builder(context).build().apply {
-            val uri = RawResourceDataSource.buildRawResourceUri(videoResId)
-            setMediaItem(MediaItem.fromUri(uri))
-            repeatMode = Player.REPEAT_MODE_ONE // Loop endlessly
-            volume = 0f // Mute completely to avoid clashing with the main audio track
-            prepare()
-            // Don't auto-play immediately, let LaunchedEffect handle it
+            videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+            val uri = when {
+                !videoUrl.isNullOrBlank() -> Uri.parse(videoUrl)
+                videoResId != null -> RawResourceDataSource.buildRawResourceUri(videoResId)
+                else -> Uri.EMPTY
+            }
+            if (uri != Uri.EMPTY) {
+                setMediaItem(MediaItem.fromUri(uri))
+                repeatMode = Player.REPEAT_MODE_ONE
+                volume = 0f
+                prepare()
+            }
         }
     }
 
-    // 🔥 THE FIX 3: Sync video playback with music playback
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             exoPlayer.play()
@@ -52,29 +67,41 @@ fun LoopingVideoVisualizer(
         }
     }
 
-    // Ensure the player is properly released to prevent memory leaks
     DisposableEffect(Unit) {
         onDispose { exoPlayer.release() }
     }
 
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                isFirstFrameRendered = true
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose { exoPlayer.removeListener(listener) }
+    }
+
     AndroidView(
         factory = { ctx ->
-            PlayerView(ctx).apply {
+            val themedContext = ContextThemeWrapper(ctx, R.style.Theme_MediaPlayer)
+            PlayerView(themedContext).apply {
                 player = exoPlayer
-                useController = false // Hide all playback controls
-                // Crop the video to fill the screen edges perfectly
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM 
+                useController = false
+                setShutterBackgroundColor(Color.TRANSPARENT)
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                 layoutParams = FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             }
         },
+        update = { playerView ->
+            playerView.player = exoPlayer
+        },
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
-                alpha = 0.99f
-                // blendMode = BlendMode.Screen 
+                alpha = videoAlpha
             }
     )
 }

@@ -1,6 +1,7 @@
 package com.mediaplayer.ui.library
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.*
@@ -25,7 +26,9 @@ fun AlbumDetailsScreen(
     onTrackClick: () -> Unit
 ) {
     val tracks by libVm.getTracksForAlbum(albumName).collectAsState(initial = emptyList())
+    val playerState by playerVm.state.collectAsState()
     val albumInfo = tracks.firstOrNull()
+    val listState = rememberLazyListState()
 
     Scaffold(
         topBar = {
@@ -39,52 +42,53 @@ fun AlbumDetailsScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            // Album Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                GlideImage(
-                    model = albumInfo?.albumArtUri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(120.dp)
-                )
-                Spacer(Modifier.width(16.dp))
+        TrackList(
+            tracks = tracks,
+            listState = listState,
+            playerState = playerState,
+            accentColor = MaterialTheme.colorScheme.primary,
+            onTrackClick = { clickedTrack ->
+                playerVm.playTracks(tracks, tracks.indexOf(clickedTrack), "Album", albumName)
+                onTrackClick()
+            },
+            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 120.dp),
+            header = {
                 Column {
-                    Text(
-                        text = albumName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = albumInfo?.artist ?: "Unknown Artist",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${tracks.size} tracks",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        GlideImage(
+                            model = albumInfo?.albumArtUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(120.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = albumName,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = albumInfo?.artist ?: "Unknown Artist",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${tracks.size} tracks",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    HorizontalDivider()
                 }
             }
-
-            HorizontalDivider()
-
-            // Track List
-            TrackList(
-                tracks = tracks,
-                onTrackClick = { clickedTrack ->
-                    playerVm.playTracks(tracks, tracks.indexOf(clickedTrack))
-                    onTrackClick()
-                }
-            )
-        }
+        )
     }
 }

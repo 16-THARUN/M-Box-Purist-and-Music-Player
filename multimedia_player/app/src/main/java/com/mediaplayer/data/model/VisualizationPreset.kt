@@ -22,9 +22,6 @@ val mboxVisualizerPresets = listOf(
     VisualizationPreset("aurora_borealis", "Aurora Borealis", "Immersive Full Screen"),
     VisualizationPreset("oled_edge", "OLED Edge Lighting", "Immersive Full Screen"),
     VisualizationPreset("cinematic_leaks", "Cinematic Light Leaks", "Immersive Full Screen"),
-    VisualizationPreset("analog_glitch", "Analog Glitch Burn", "Immersive Full Screen"),
-    VisualizationPreset("anamorphic_flare", "Anamorphic Lens Flare", "Immersive Full Screen"),
-    VisualizationPreset("volumetric_particles", "Volumetric Particle Grid", "Immersive Full Screen"),
 
     // 🔥 THE NEW CINEMATIC VIDEO BACKGROUNDS
     VisualizationPreset("video_glitch", "Cinematic Glitch Burn", "Premium Video Background"),

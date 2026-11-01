@@ -13,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,19 @@ import com.mediaplayer.ui.components.VisualizationModeSheet
 import com.mediaplayer.util.UpdateManager
 import com.mediaplayer.viewmodel.PlayerViewModel
 import com.mediaplayer.viewmodel.SettingsViewModel
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.documentfile.provider.DocumentFile
+import androidx.compose.ui.text.font.FontWeight
+import com.mediaplayer.ui.components.BluetoothDeviceBottomSheet
+import com.mediaplayer.util.LocalAudioServer
+import com.mediaplayer.util.WifiDiscoveryManager
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SettingsScreen
@@ -47,6 +62,15 @@ fun SettingsScreen(
     val s by vm.state.collectAsStateWithLifecycle()
     val updateManager = remember { UpdateManager(context) }
 
+    LaunchedEffect(Unit) {
+        vm.registerUsbDacListener(context)
+    }
+    
+    // 🔥 NEW REPOSITORY INTEGRATION
+    val folderRepo = remember { com.mediaplayer.data.repository.FolderPreferencesRepository(context) }
+    val coroutineScope = rememberCoroutineScope()
+    val savedFolders by folderRepo.selectedFoldersFlow.collectAsState(initial = emptySet())
+
     // Dialog state
     var showThemePicker      by remember { mutableStateOf(false) }
     var showCrossfadePicker  by remember { mutableStateOf(false) }
@@ -54,6 +78,27 @@ fun SettingsScreen(
     var showReplayGainPicker by remember { mutableStateOf(false) }
     var showMinDurPicker     by remember { mutableStateOf(false) }
     var showVisualizationSheet by remember { mutableStateOf(false) }
+    var showFolderSelection  by remember { mutableStateOf(false) }
+    var showSpeedPicker      by remember { mutableStateOf(false) }
+    var showReverbPicker     by remember { mutableStateOf(false) }
+    var showOutputPrecisionPicker by remember { mutableStateOf(false) }
+    var showLyricsSourcesSheet by remember { mutableStateOf(false) }
+    var showSeekBarStylePicker by remember { mutableStateOf(false) }
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        uri?.let { 
+            // 1. Take persistent permission to survive reboots
+            val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(it, takeFlags)
+            
+            // 2. Save the URI string to DataStore using the new Repository
+            coroutineScope.launch {
+                folderRepo.addFolderUri(it.toString())
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -82,6 +127,21 @@ fun SettingsScreen(
                 title = "Theme",
                 sub   = s.appTheme.label,
                 onClick = { showThemePicker = true }
+            )
+
+            SettingItem(
+                icon  = Icons.Rounded.GraphicEq,
+                title = "Seek bar style",
+                sub   = if (s.seekBarStyle == "wavy") "Wavy line" else "Time inside pill",
+                onClick = { showSeekBarStylePicker = true }
+            )
+
+            SwitchSetting(
+                icon    = Icons.Rounded.OpenInFull,
+                title   = "Open Now Playing when a song starts",
+                sub     = "Automatically open full screen player on song select",
+                checked = s.openNowPlayingOnSongStart,
+                onToggle = vm::setOpenNowPlayingOnStart
             )
 
             // ── PLAYBACK ─────────────────────────────────────────────────────
@@ -128,6 +188,108 @@ fun SettingsScreen(
                 )
             }
 
+            SwitchSetting(
+                icon    = Icons.Rounded.GraphicEq,
+                title   = "Skip silence",
+                sub     = "Trim gaps longer than a second",
+                checked = s.skipSilence,
+                onToggle = vm::setSkipSilence
+            )
+
+            SettingItem(
+                icon  = Icons.Rounded.Speed,
+                title = "Playback speed / pitch",
+                sub   = String.format("%.1fx speed %s", s.playbackSpeed, if (s.pitchLock) "· Pitch locked" else ""),
+                onClick = { showSpeedPicker = true }
+            )
+
+            // ── EFFECTS ──────────────────────────────────────────────────────
+            SectionHeader("Effects")
+
+            val pState by playerVm.state.collectAsStateWithLifecycle()
+
+            SwitchSetting(
+                icon    = Icons.Rounded.Equalizer,
+                title   = "Bass Boost",
+                sub     = "Low frequency enhancement",
+                checked = pState.bassBoostOn,
+                onToggle = { playerVm.setBassBoostEnabled(it) }
+            )
+
+            SwitchSetting(
+                icon    = Icons.Rounded.SurroundSound,
+                title   = "Virtualizer",
+                sub     = "3D spatial audio widening",
+                checked = pState.virtualizerOn,
+                onToggle = { playerVm.setVirtualizerEnabled(it) }
+            )
+
+            SwitchSetting(
+                icon    = Icons.Rounded.VolumeUp,
+                title   = "Loudness Enhancer",
+                sub     = "Gain boost for quiet recordings",
+                checked = pState.loudnessOn,
+                onToggle = { playerVm.setLoudnessEnabled(it) }
+            )
+
+            SettingItem(
+                icon  = Icons.Rounded.MeetingRoom,
+                title = "Reverb / Environment",
+                sub   = s.reverbPreset,
+                onClick = { showReverbPicker = true }
+            )
+
+            // ── OUTPUT ───────────────────────────────────────────────────────
+            SectionHeader("Output")
+
+            SettingItem(
+                icon  = Icons.Rounded.Memory,
+                title = "Output precision",
+                sub   = if (s.isUsbDacConnected) s.outputPrecision else "AudioTrack · CPH2649 · 48.0 kHz · 16-bit PCM",
+                onClick = { showOutputPrecisionPicker = true }
+            )
+
+            ListItem(
+                headlineContent = { Text("Prefer USB DAC") },
+                supportingContent = { Text("Route bit-perfect audio directly to external USB DACs") },
+                leadingContent = { Icon(Icons.Rounded.Usb, null) },
+                trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (s.isUsbDacConnected) {
+                            Surface(
+                                color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, Color(0xFF4CAF50)),
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = "CONNECTED",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF4CAF50),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        Switch(checked = s.preferUsbDac, onCheckedChange = vm::setPreferUsbDac)
+                    }
+                },
+                modifier = Modifier.clickable { vm.setPreferUsbDac(!s.preferUsbDac) }
+            )
+
+            SettingItem(
+                icon  = Icons.Rounded.GraphicEq,
+                title = "Sample rate",
+                sub   = if (s.isUsbDacConnected) "${s.usbDacSampleRate} (USB DAC Native)" else "48.0 kHz (Hardware Native)"
+            )
+
+            SwitchSetting(
+                icon    = Icons.Rounded.Hearing,
+                title   = "Mono audio",
+                sub     = "Combine channels into mono output for accessibility",
+                checked = s.monoAudio,
+                onToggle = vm::setMonoAudio
+            )
+
             // ── NOTIFICATION / LOCKSCREEN ────────────────────────────────────
             SectionHeader("Notification & lock screen")
 
@@ -152,6 +314,27 @@ fun SettingsScreen(
                 onToggle = vm::setShowTrackNumber
             )
 
+            SettingItem(
+                icon  = Icons.Rounded.Subtitles,
+                title = "Lyrics sources",
+                sub   = "Manage multi-source lyrics providers & ordering",
+                onClick = { showLyricsSourcesSheet = true }
+            )
+
+            // ── TV CONNECTION (Wi-Fi) ─────────────────────────────────────
+            SectionHeader("TV Connection (Wi-Fi)")
+
+            val localLanIp = remember { LocalAudioServer(context).getLocalIpAddress() ?: "WiFi Not Connected" }
+
+
+            SettingItem(
+                icon  = Icons.Rounded.Wifi,
+                title = "Phone LAN Address (WiFi)",
+                sub   = if (localLanIp.startsWith("1") || localLanIp.startsWith("192") || localLanIp.startsWith("10")) "http://$localLanIp:8787" else localLanIp
+            )
+
+
+
             // ── LIBRARY SCANNING ─────────────────────────────────────────────
             SectionHeader("Library scanning")
 
@@ -172,6 +355,13 @@ fun SettingsScreen(
                     indent = true
                 )
             }
+
+            SettingItem(
+                icon  = Icons.Rounded.FolderSpecial,
+                title = "Music folders",
+                sub   = "${savedFolders.size} folders selected",
+                onClick = { showFolderSelection = true }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -206,7 +396,7 @@ fun SettingsScreen(
             SettingItem(
                 icon  = Icons.Rounded.Info,
                 title = "Version",
-                sub   = "1.1.0"
+                sub   = "1.2.0"
             )
 
             // 🔥 THE UPDATE INITIATOR
@@ -315,6 +505,184 @@ fun SettingsScreen(
             viewModel = playerVm
         )
     }
+
+    if (showFolderSelection) {
+        FolderSelectionDialog(
+            selectedUris = savedFolders.mapNotNull { runCatching { Uri.parse(it) }.getOrNull() },
+            onAddFolderClick = { folderPickerLauncher.launch(null) },
+            onRemoveFolder = { uri ->
+                coroutineScope.launch {
+                    folderRepo.removeFolderUri(uri.toString())
+                }
+            },
+            onSaveAndScanClick = {
+                showFolderSelection = false
+                // Trigger scan
+                val forceSyncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>().build()
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    "AutoLibrarySync",
+                    ExistingWorkPolicy.REPLACE, 
+                    forceSyncRequest
+                )
+                Toast.makeText(context, "Scanning selected folders...", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showFolderSelection = false }
+        )
+    }
+
+    if (showSpeedPicker) {
+        AlertDialog(
+            onDismissRequest = { showSpeedPicker = false },
+            title = { Text("Playback speed & pitch") },
+            text = {
+                Column {
+                    Text(
+                        text = String.format(Locale.US, "Speed: %.1fx", s.playbackSpeed),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Slider(
+                        value = s.playbackSpeed,
+                        onValueChange = { vm.setPlaybackSpeed(it) },
+                        valueRange = 0.5f..2.0f
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { vm.setPitchLock(!s.pitchLock) }
+                    ) {
+                        Checkbox(checked = s.pitchLock, onCheckedChange = { vm.setPitchLock(it) })
+                        Text("Lock pitch (preserve original voice pitch)")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSpeedPicker = false }) { Text("Done") }
+            }
+        )
+    }
+
+    if (showSeekBarStylePicker) {
+        RadioDialog(
+            title   = "Seek bar style",
+            options = listOf("pill" to "Time inside pill", "wavy" to "Wavy line"),
+            current = s.seekBarStyle,
+            onSelect= {
+                vm.setSeekBarStyle(it)
+                showSeekBarStylePicker = false
+            },
+            onDismiss = { showSeekBarStylePicker = false }
+        )
+    }
+
+    if (showReverbPicker) {
+        RadioDialog(
+            title   = "Reverb / Environment",
+            options = listOf("Off", "Small Room", "Large Hall", "Plate", "Studio").map { it to it },
+            current = s.reverbPreset,
+            onSelect = { vm.setReverbPreset(it); showReverbPicker = false },
+            onDismiss = { showReverbPicker = false }
+        )
+    }
+
+    if (showOutputPrecisionPicker) {
+        RadioDialog(
+            title   = "Output precision",
+            options = listOf("16-bit PCM", "24-bit High-Res", "32-bit Float").map { it to it },
+            current = s.outputPrecision,
+            onSelect = { vm.setOutputPrecision(it); showOutputPrecisionPicker = false },
+            onDismiss = { showOutputPrecisionPicker = false }
+        )
+    }
+
+    if (showLyricsSourcesSheet) {
+        LyricsSourcesScreen(
+            onDismiss = { showLyricsSourcesSheet = false }
+        )
+    }
+}
+
+@Composable
+fun FolderSelectionDialog(
+    selectedUris: List<Uri>,
+    onAddFolderClick: () -> Unit,
+    onRemoveFolder: (Uri) -> Unit,
+    onSaveAndScanClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Folders Selection") },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "M-Box will only scan these specific folders for music.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                if (selectedUris.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No folders added yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        items(selectedUris) { uri ->
+                            val folderName = DocumentFile.fromTreeUri(context, uri)?.name ?: "Unknown Folder"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(folderName, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+                                    Text(
+                                        uri.path ?: "", 
+                                        style = MaterialTheme.typography.bodySmall, 
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                                IconButton(onClick = { onRemoveFolder(uri) }) {
+                                    Icon(Icons.Rounded.Delete, "Remove", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = onAddFolderClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Rounded.Add, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Select Folder or Storage")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSaveAndScanClick) {
+                Text("Save and Scan")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 package com.mediaplayer.ui.components
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -8,71 +9,107 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.dp
+import com.mediaplayer.util.DeviceState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
-fun VinylGrooveBleedVisualizer(fftFlow: StateFlow<FloatArray>, modifier: Modifier = Modifier, color: Color) {
-    val numPoints = 128
-    var animatedData by remember { mutableStateOf(FloatArray(numPoints)) }
-    var targetData by remember { mutableStateOf(FloatArray(numPoints)) }
+fun VinylGrooveBleedVisualizer(
+    fftFlow: StateFlow<FloatArray>,
+    modifier: Modifier = Modifier,
+    color: Color,
+    deviceState: DeviceState,
+    centerOffset: Offset? = null,
+    vinylRadiusOverride: Float = 0f
+) {
+    val points = 96
+    val animatedData = remember { FloatArray(points) }
+    val targetData = remember { FloatArray(points) }
+    val autoGainSmoother = remember { AutoGainBandSmoother(points, 12f, 110f) }
 
-    LaunchedEffect(Unit) {
-        // Coroutine 1: Capture Target Data
-        launch {
-            fftFlow.collect { fft ->
-                val newTarget = FloatArray(numPoints)
-                for (i in 0 until numPoints) {
-                    val fftIndex = if (i < (numPoints / 2)) i else numPoints - i - 1
-                    newTarget[i] = if (fftIndex < fft.size) fft[fftIndex] else 0f
-                }
-                targetData = newTarget
-            }
-        }
-        
-        // Coroutine 2: 60FPS Hardware-Synced Glide
-        launch {
-            while (true) {
-                withFrameNanos { _ ->
-                    val newArr = FloatArray(numPoints)
-                    for (i in 0 until numPoints) {
-                        // Smooth interpolation factor (0.2f provides a natural glide)
-                        newArr[i] = animatedData[i] + (targetData[i] - animatedData[i]) * 0.2f
-                    }
-                    animatedData = newArr
+    var tick by remember { mutableIntStateOf(0) }
+    var lastUpdateTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var lastNanos by remember { mutableLongStateOf(0L) }
+
+    val transition = rememberInfiniteTransition(label = "BleedRotation")
+    val rotationAngle by transition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(10000, easing = LinearEasing)), label = "rot"
+    )
+
+    LaunchedEffect(fftFlow) {
+        fftFlow.collect { fft ->
+            if (fft.isNotEmpty()) {
+                lastUpdateTime = System.currentTimeMillis()
+                val len = fft.size
+                for (i in 0 until points) {
+                    val bandIdx = mapSymmetricBandIndex(i, points, len)
+                    targetData[i] = fft[bandIdx]
                 }
             }
         }
     }
 
-    Canvas(modifier = modifier.fillMaxSize()) {
-        if (animatedData.isEmpty()) return@Canvas
+    val frameDelay = when (deviceState) {
+        DeviceState.OPTIMAL -> 0L
+        DeviceState.LOW_BATTERY -> 32L
+        DeviceState.POWER_SAVER -> 64L
+    }
 
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val baseRadius = (size.minDimension / 2f) * 0.85f 
+    LaunchedEffect(deviceState) {
+        while (true) {
+            withFrameNanos { now ->
+                val dtMs = if (lastNanos > 0L) ((now - lastNanos) / 1_000_000f).coerceIn(1f, 50f) else 16f
+                lastNanos = now
 
-        val path = Path()
-        val angleStep = (2 * PI) / numPoints
+                if (System.currentTimeMillis() - lastUpdateTime > 150L) {
+                    for (i in 0 until points) targetData[i] = 0f
+                }
 
-        for (i in 0 until numPoints) {
-            val angle = i * angleStep
-            val spike = animatedData[i] * 2.5f 
-            val radius = baseRadius + spike
-
-            val x = center.x + (radius * cos(angle)).toFloat()
-            val y = center.y + (radius * sin(angle)).toFloat()
-
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                autoGainSmoother.process(targetData, dtMs, animatedData)
+                tick++
+            }
+            if (frameDelay > 0) delay(frameDelay.milliseconds)
         }
-        path.close()
+    }
+
+    val drawColor = remember(color) { getLightenedAccentColor(color) }
+    val starPath = remember { Path() }
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        @Suppress("UNUSED_VARIABLE")
+        val _t = tick
+
+        val center = centerOffset ?: Offset(size.width / 2f, size.height / 2f)
+        val R = if (vinylRadiusOverride > 0f) vinylRadiusOverride else min(size.width, size.height) * 0.40f
+
+        val baseR = R + 6.dp.toPx()
+        val maxSpike = 70.dp.toPx()
+        val rotRad = Math.toRadians(rotationAngle.toDouble())
+
+        starPath.reset()
+        for (i in 0 until points) {
+            val baseAngle = i * (2.0 * Math.PI / points)
+            val angle = baseAngle + rotRad
+            val energy = animatedData[i].coerceIn(0f, 1f)
+            val currentR = baseR + (energy * maxSpike)
+
+            val x = center.x + (currentR * cos(angle)).toFloat()
+            val y = center.y + (currentR * sin(angle)).toFloat()
+
+            if (i == 0) starPath.moveTo(x, y) else starPath.lineTo(x, y)
+        }
+        starPath.close()
 
         drawPath(
-            path = path,
-            color = color.copy(alpha = 0.8f),
-            style = Stroke(width = 6f),
+            path = starPath,
+            color = drawColor.copy(alpha = 0.85f),
+            style = Stroke(width = 2.dp.toPx())
         )
     }
 }

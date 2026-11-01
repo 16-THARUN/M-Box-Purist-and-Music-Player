@@ -18,6 +18,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mediaplayer.data.model.mboxVisualizerPresets
 import com.mediaplayer.viewmodel.PlayerViewModel
 
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VisualizationModeSheet(
@@ -27,12 +30,20 @@ fun VisualizationModeSheet(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val selectedPresetId = state.activeVisualizerMode
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF1E1E1E), // Dark theme surface matching the screenshot
         dragHandle = null, // Removing default handle to match the custom header
-        modifier = Modifier.fillMaxHeight(0.9f) // Take up 90% of the screen height
+        modifier = if (isLandscape) {
+            Modifier
+                .fillMaxHeight(0.60f)
+                .widthIn(max = 480.dp)
+        } else {
+            Modifier.fillMaxHeight(0.90f)
+        }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             

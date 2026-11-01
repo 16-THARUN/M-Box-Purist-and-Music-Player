@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.mediaplayer.ui.components.SortOption
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -76,6 +77,19 @@ class PlayerPreferences @Inject constructor(
         val SHOW_TRACK_NUMBER   = booleanPreferencesKey("show_track_number")
         val SCAN_EXCLUDE_SHORT  = booleanPreferencesKey("scan_exclude_short") // skip <30 s files
         val SCAN_MIN_DURATION   = intPreferencesKey("scan_min_duration_s")   // default 30
+        val SKIP_SILENCE        = booleanPreferencesKey("skip_silence")
+        val PLAYBACK_SPEED      = floatPreferencesKey("playback_speed")
+        val PITCH_LOCK          = booleanPreferencesKey("pitch_lock")
+        val REVERB_PRESET       = stringPreferencesKey("reverb_preset")
+        val OUTPUT_PRECISION    = stringPreferencesKey("output_precision")
+        val PREFER_USB_DAC      = booleanPreferencesKey("prefer_usb_dac")
+        val MONO_AUDIO          = booleanPreferencesKey("mono_audio")
+        val SEEKBAR_STYLE       = stringPreferencesKey("seekbar_style")      // "pill" | "wavy"
+        val OPEN_NOW_PLAYING_ON_START = booleanPreferencesKey("open_now_playing_on_start")
+        val LAST_TV_IP          = stringPreferencesKey("last_tv_ip")
+        val LAST_TV_NAME        = stringPreferencesKey("last_tv_name")
+        val LAST_TV_MAC         = stringPreferencesKey("last_tv_mac")
+        val LAST_TV_TOKEN       = stringPreferencesKey("last_tv_token")
     }
 
     // ── Playback flows ────────────────────────────────────────────────────────
@@ -117,6 +131,19 @@ class PlayerPreferences @Inject constructor(
     val showTrackNumber:  Flow<Boolean>            = ds.data.map { it[SHOW_TRACK_NUMBER]   ?: false }
     val scanExcludeShort: Flow<Boolean>            = ds.data.map { it[SCAN_EXCLUDE_SHORT]  ?: true }
     val scanMinDuration:  Flow<Int>                = ds.data.map { it[SCAN_MIN_DURATION]   ?: 30 }
+    val skipSilence:      Flow<Boolean>            = ds.data.map { it[SKIP_SILENCE]        ?: false }
+    val playbackSpeed:    Flow<Float>              = ds.data.map { it[PLAYBACK_SPEED]      ?: 1.0f }
+    val pitchLock:        Flow<Boolean>            = ds.data.map { it[PITCH_LOCK]          ?: true }
+    val reverbPreset:     Flow<String>             = ds.data.map { it[REVERB_PRESET]       ?: "Off" }
+    val outputPrecision:  Flow<String>             = ds.data.map { it[OUTPUT_PRECISION]    ?: "32-bit Float" }
+    val preferUsbDac:     Flow<Boolean>            = ds.data.map { it[PREFER_USB_DAC]      ?: false }
+    val monoAudio:        Flow<Boolean>            = ds.data.map { it[MONO_AUDIO]          ?: false }
+    val seekBarStyle:     Flow<String>             = ds.data.map { it[SEEKBAR_STYLE]       ?: "pill" }
+    val openNowPlayingOnSongStart: Flow<Boolean>   = ds.data.map { it[OPEN_NOW_PLAYING_ON_START] ?: false }
+    val lastTvIp:         Flow<String>             = ds.data.map { it[LAST_TV_IP]          ?: "" }
+    val lastTvName:       Flow<String>             = ds.data.map { it[LAST_TV_NAME]        ?: "" }
+    val lastTvMac:        Flow<String>             = ds.data.map { it[LAST_TV_MAC]         ?: "" }
+    val lastTvToken:      Flow<String>             = ds.data.map { it[LAST_TV_TOKEN]       ?: "" }
 
     // ── Writes ────────────────────────────────────────────────────────────────
     suspend fun setRepeatMode(mode: Int)           = ds.edit { it[REPEAT_MODE]       = mode }
@@ -141,6 +168,9 @@ class PlayerPreferences @Inject constructor(
         it[EQ_PRESET] = preset.name
         it[EQ_BANDS]  = preset.bandLevels.joinToString(",")
     }
+    suspend fun applyPresetName(name: String)      = ds.edit {
+        it[EQ_PRESET] = name
+    }
 
     suspend fun setAppTheme(t: AppTheme)           = ds.edit { it[APP_THEME]         = t.name }
     suspend fun setCrossfade(seconds: Int)         = ds.edit { it[CROSSFADE_DURATION]= seconds }
@@ -151,4 +181,68 @@ class PlayerPreferences @Inject constructor(
     suspend fun setShowTrackNumber(on: Boolean)    = ds.edit { it[SHOW_TRACK_NUMBER] = on }
     suspend fun setScanExcludeShort(on: Boolean)   = ds.edit { it[SCAN_EXCLUDE_SHORT]= on }
     suspend fun setScanMinDuration(s: Int)         = ds.edit { it[SCAN_MIN_DURATION] = s }
+    suspend fun setSkipSilence(on: Boolean)        = ds.edit { it[SKIP_SILENCE]     = on }
+    suspend fun setPlaybackSpeed(s: Float)         = ds.edit { it[PLAYBACK_SPEED]   = s }
+    suspend fun setPitchLock(on: Boolean)          = ds.edit { it[PITCH_LOCK]       = on }
+    suspend fun setReverbPreset(preset: String)    = ds.edit { it[REVERB_PRESET]    = preset }
+    suspend fun setOutputPrecision(p: String)      = ds.edit { it[OUTPUT_PRECISION] = p }
+    suspend fun setPreferUsbDac(on: Boolean)       = ds.edit { it[PREFER_USB_DAC]   = on }
+    suspend fun setMonoAudio(on: Boolean)          = ds.edit { it[MONO_AUDIO]       = on }
+    suspend fun setSeekBarStyle(style: String)     = ds.edit { it[SEEKBAR_STYLE]    = style }
+    suspend fun setOpenNowPlayingOnStart(on: Boolean) = ds.edit { it[OPEN_NOW_PLAYING_ON_START] = on }
+    suspend fun saveLastTvInfo(ip: String, name: String, mac: String, token: String) = ds.edit {
+        it[LAST_TV_IP] = ip
+        it[LAST_TV_NAME] = name
+        it[LAST_TV_MAC] = mac
+        if (token.isNotBlank()) it[LAST_TV_TOKEN] = token
+    }
+
+    fun getListSortOrderFlow(type: ListType): Flow<SortOption> = ds.data.map { prefs ->
+        val key = stringPreferencesKey("list_sort_${type.name.lowercase()}")
+        val name = prefs[key] ?: SortOption.TITLE.name
+        runCatching { SortOption.valueOf(name) }.getOrDefault(SortOption.TITLE)
+    }
+
+    fun getListReverseFlow(type: ListType): Flow<Boolean> = ds.data.map { prefs ->
+        val key = booleanPreferencesKey("list_reverse_${type.name.lowercase()}")
+        prefs[key] ?: false
+    }
+
+    suspend fun setListSortOrder(type: ListType, sortOption: SortOption) = ds.edit { prefs ->
+        val key = stringPreferencesKey("list_sort_${type.name.lowercase()}")
+        prefs[key] = sortOption.name
+    }
+
+    suspend fun setListReverse(type: ListType, isReverse: Boolean) = ds.edit { prefs ->
+        val key = booleanPreferencesKey("list_reverse_${type.name.lowercase()}")
+        prefs[key] = isReverse
+    }
+
+    suspend fun cleanupOldItemKeys() = ds.edit { prefs ->
+        val keysToRemove = prefs.asMap().keys.filter { key ->
+            key.name.startsWith("sort_order_folder_") || key.name.startsWith("sort_order_item_") || key.name.startsWith("category_sort_")
+        }
+        for (k in keysToRemove) {
+            prefs.remove(k)
+        }
+    }
+}
+
+enum class ListType(val displayName: String, val subtitleText: String) {
+    ALL_SONGS("All Songs", "Applies to all songs"),
+    ALBUMS("Albums", "Applies to all albums"),
+    ALBUM_SONGS("Album Songs", "Applies to all album songs"),
+    ARTISTS("Artists", "Applies to all artists"),
+    ARTIST_SONGS("Artist Songs", "Applies to all artist songs"),
+    ALBUM_ARTISTS("Album Artists", "Applies to all album artists"),
+    FOLDERS("Folders", "Applies to all folders"),
+    FOLDER_SONGS("Folder Songs", "Applies to all folder songs"),
+    FOLDERS_HIERARCHY("Folders Hierarchy", "Applies to folder hierarchy view"),
+    GENRES("Genres", "Applies to all genres"),
+    GENRE_SONGS("Genre Songs", "Applies to all genre songs"),
+    YEARS("Years", "Applies to all years"),
+    YEAR_SONGS("Year Songs", "Applies to all year songs"),
+    COMPOSERS("Composers", "Applies to all composers"),
+    COMPOSER_SONGS("Composer Songs", "Applies to all composer songs"),
+    PLAYLISTS("Playlists", "Applies to all playlists")
 }

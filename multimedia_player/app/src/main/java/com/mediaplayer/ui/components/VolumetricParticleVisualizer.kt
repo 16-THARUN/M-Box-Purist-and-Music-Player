@@ -14,14 +14,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.random.Random
 
 @Composable
-fun VolumetricParticleVisualizer(modifier: Modifier = Modifier) {
-    // Generate a static list of random particle starting states
+fun VolumetricParticleVisualizer(modifier: Modifier = Modifier, centerOffset: Offset? = null) {
     val particles = remember {
         List(150) {
             ParticleState(
-                x = Random.nextFloat(), // 0.0 to 1.0 (Percentage of screen width)
-                y = Random.nextFloat(), // 0.0 to 1.0 (Percentage of screen height)
-                zOffset = Random.nextFloat(), // Used to stagger their movement
+                x = Random.nextFloat(),
+                y = Random.nextFloat(),
+                zOffset = Random.nextFloat(),
                 color = listOf(
                     Color(0xFFFF1744), // Red
                     Color(0xFF00E676), // Green
@@ -52,17 +51,14 @@ fun VolumetricParticleVisualizer(modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val maxRadius = w * 0.04f
+        val center = centerOffset ?: Offset(w / 2f, h / 2f)
 
         particles.forEach { particle ->
-            // Calculate effective Z depth (0.0 is far away, 1.0 is hitting the camera)
             val currentZ = (particle.zOffset + globalZTime) % 1.0f
+            val scale = currentZ * currentZ
             
-            // The closer it gets, the larger and faster it appears to move outwards from the center
-            val scale = currentZ * currentZ // Exponential scale for 3D feel
-            
-            // Push particles outward from the center as they get "closer"
-            val centerX = w / 2f
-            val centerY = h / 2f
+            val centerX = center.x
+            val centerY = center.y
             val drawX = centerX + ((particle.x * w - centerX) * (1f + scale * 2f))
             val drawY = centerY + ((particle.y * h - centerY) * (1f + scale * 2f))
 
@@ -85,7 +81,6 @@ fun VolumetricParticleVisualizer(modifier: Modifier = Modifier) {
     }
 }
 
-// Data class to hold particle properties
 data class ParticleState(
     val x: Float,
     val y: Float,

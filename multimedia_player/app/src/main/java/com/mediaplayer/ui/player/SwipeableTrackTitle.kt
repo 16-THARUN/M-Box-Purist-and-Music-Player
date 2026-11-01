@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,16 +99,16 @@ fun SwipeableTrackTitle(
                 )
             }
 
-            // 🔥 THE NEW LYRICS BUTTON
+            // 🔥 LYRICS BUTTON (White 12% background circle, white 90% icon)
             IconButton(
                 onClick = onToggleLyrics,
                 modifier = Modifier
-                    // Apply the soft dark background and shape directly to the button
+                    .zIndex(10f)
                     .background(
-                        color = Color.Black.copy(alpha = 0.1f),
+                        color = Color.White.copy(alpha = 0.12f),
                         shape = RoundedCornerShape(16.dp)
                     )
-                    .size(48.dp) // Ensure a consistent, clickable size
+                    .size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Lyrics,

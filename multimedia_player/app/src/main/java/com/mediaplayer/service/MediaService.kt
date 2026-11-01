@@ -7,11 +7,13 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -24,17 +26,23 @@ import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionError
 import androidx.annotation.OptIn
+import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.util.EventLogger
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediaplayer.MainActivity
+import com.mediaplayer.R
 import com.mediaplayer.data.db.TrackDao
 import com.mediaplayer.data.model.Track
+import com.mediaplayer.util.DolbyCapabilityDetector
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.guava.future
@@ -60,6 +68,7 @@ import javax.inject.Inject
 class MediaService : MediaLibraryService() {
 
     @Inject lateinit var eqManager: EqualizerManager
+    @Inject lateinit var dspEngine: NativeDspEngine
     @Inject lateinit var trackDao:  TrackDao
     @Inject lateinit var vinylEffectManager: VinylEffectManager
     @Inject lateinit var visualizerManager: com.mediaplayer.util.VisualizerManager
@@ -69,13 +78,18 @@ class MediaService : MediaLibraryService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    val biquadEqProcessor = BiquadEqAudioProcessor()
+
     @UnstableApi
     override fun onCreate() {
         super.onCreate()
 
+        // Step 0: Query and Log Dolby Capabilities
+        DolbyCapabilityDetector.queryCapabilities(this)
+
         // 1. Setup the Hardware-Aware AudioSink
         val audioSink = DefaultAudioSink.Builder(this)
-            // Offload is managed via TrackSelectionParameters in 1.4.1+
+            .setAudioProcessors(arrayOf(biquadEqProcessor, visualizerManager.pcmAnalysisProcessor))
             .build()
 
         // 2. Force MediaCodec over FFmpeg for Bitstream Passthrough
@@ -130,6 +144,8 @@ class MediaService : MediaLibraryService() {
             )
         }
 
+        val stableAudioSessionId = androidx.media3.common.util.Util.generateAudioSessionIdV21(this)
+
         // 4. Build the Player
         player = ExoPlayer.Builder(this, renderersFactory)
             .setTrackSelector(trackSelector)
@@ -144,12 +160,62 @@ class MediaService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
+        player.audioSessionId = stableAudioSessionId
+        player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+
+        // Attach Equalizer once for stable service lifetime audio session
+        eqManager.attach(stableAudioSessionId)
+
+        player.addAnalyticsListener(EventLogger())
+
+        player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onAudioDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+                initializedTimestampMs: Long,
+                initializationDurationMs: Long
+            ) {
+                Log.i("AudioPipeline", "Live Audio Decoder Initialized: $decoderName")
+                currentDecoderName = decoderName
+            }
+
+            override fun onAudioSinkError(
+                eventTime: AnalyticsListener.EventTime,
+                audioSinkError: Exception
+            ) {
+                Log.e("AudioPipeline", "AudioSink Error: ${audioSinkError.message}", audioSinkError)
+                currentAudioError = "AudioSink Error: ${audioSinkError.message}"
+            }
+
+            override fun onPlayerError(
+                eventTime: AnalyticsListener.EventTime,
+                error: PlaybackException
+            ) {
+                Log.e("AudioPipeline", "Player Error: ${error.errorCodeName} - ${error.message}", error)
+                currentAudioError = "Player Error: ${error.message}"
+            }
+        })
+
         player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
+                    eqManager.attach(audioSessionId)
+                }
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                currentDecoderName = ""
+                currentAudioError = null
+                val title = mediaItem?.mediaMetadata?.title ?: "Unknown Title"
+                val artist = mediaItem?.mediaMetadata?.artist ?: "Unknown Artist"
+                Log.d("AudioPipeline", "Track transition: title=$title, artist=$artist")
+            }
+
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) {
                     val sid = player.audioSessionId
                     if (sid != C.AUDIO_SESSION_ID_UNSET) {
-                        eqManager.init(sid)
+                        dspEngine.init(sid)
                         visualizerManager.start(sid)
                     }
                 }
@@ -181,6 +247,11 @@ class MediaService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(this, player, LibraryCallback())
             .setSessionActivity(activityIntent)
             .build()
+
+        val notificationProvider = DefaultMediaNotificationProvider(this).apply {
+            setSmallIcon(R.drawable.ic_notification_small)
+        }
+        setMediaNotificationProvider(notificationProvider)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = session
@@ -192,6 +263,7 @@ class MediaService : MediaLibraryService() {
     override fun onDestroy() {
         serviceScope.cancel()
         eqManager.release()
+        dspEngine.release()
         visualizerManager.stop()
         vinylEffectManager.release()
         session.release()
@@ -204,6 +276,64 @@ class MediaService : MediaLibraryService() {
     // ─────────────────────────────────────────────────────────────────────────
     @OptIn(UnstableApi::class)
     inner class LibraryCallback : MediaLibrarySession.Callback {
+
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            val connectionResult = super.onConnect(session, controller)
+            val availablePlayerCommands = connectionResult.availablePlayerCommands
+                .buildUpon()
+                .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                .add(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+                .add(Player.COMMAND_SEEK_TO_NEXT)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .add(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+                .add(Player.COMMAND_PLAY_PAUSE)
+                .add(Player.COMMAND_PREPARE)
+                .add(Player.COMMAND_STOP)
+                .build()
+
+            val cmdList = mutableListOf<String>()
+            for (i in 0 until availablePlayerCommands.size()) {
+                val cmd = availablePlayerCommands.get(i)
+                val name = when (cmd) {
+                    Player.COMMAND_PLAY_PAUSE -> "PLAY_PAUSE($cmd)"
+                    Player.COMMAND_PREPARE -> "PREPARE($cmd)"
+                    Player.COMMAND_STOP -> "STOP($cmd)"
+                    Player.COMMAND_SEEK_TO_DEFAULT_POSITION -> "SEEK_TO_DEFAULT_POSITION($cmd)"
+                    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM -> "SEEK_IN_CURRENT_MEDIA_ITEM($cmd)"
+                    Player.COMMAND_SEEK_TO_MEDIA_ITEM -> "SEEK_TO_MEDIA_ITEM($cmd)"
+                    Player.COMMAND_SEEK_TO_PREVIOUS -> "SEEK_TO_PREVIOUS($cmd)"
+                    Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> "SEEK_TO_PREVIOUS_MEDIA_ITEM($cmd)"
+                    Player.COMMAND_SEEK_TO_NEXT -> "SEEK_TO_NEXT($cmd)"
+                    Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> "SEEK_TO_NEXT_MEDIA_ITEM($cmd)"
+                    else -> "CMD_$cmd"
+                }
+                cmdList.add(name)
+            }
+            Log.i("MBoxCast", "Available commands: ${cmdList.joinToString(", ")}")
+
+            return MediaSession.ConnectionResult.accept(
+                connectionResult.availableSessionCommands,
+                availablePlayerCommands
+            )
+        }
+
+        override fun onPlayerCommandRequest(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            playerCommand: Int
+        ): Int {
+            val callerPkg = controller.packageName
+            when (playerCommand) {
+                Player.COMMAND_PLAY_PAUSE -> Log.d("CastDebug", "onPlay/onPause called, calling package = $callerPkg")
+                Player.COMMAND_SEEK_TO_NEXT -> Log.d("CastDebug", "onSkipToNext called, calling package = $callerPkg")
+                Player.COMMAND_SEEK_TO_PREVIOUS -> Log.d("CastDebug", "onSkipToPrevious called, calling package = $callerPkg")
+                else -> Log.d("CastDebug", "PlayerCommand $playerCommand called, calling package = $callerPkg")
+            }
+            return super.onPlayerCommandRequest(session, controller, playerCommand)
+        }
 
         // Root node: Android Auto calls this first
         override fun onGetLibraryRoot(
@@ -446,6 +576,9 @@ class MediaService : MediaLibraryService() {
     }
 
     companion object {
+        var currentDecoderName: String = "MediaCodec C2 Audio Decoder"
+        var currentAudioError: String? = null
+
         private const val NODE_ROOT    = "root"
         private const val NODE_SONGS   = "node_songs"
         private const val NODE_ALBUMS  = "node_albums"

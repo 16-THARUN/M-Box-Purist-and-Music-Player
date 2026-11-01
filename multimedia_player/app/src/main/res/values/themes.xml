@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.MediaPlayer" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.MediaPlayer" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">#FF121212</item>
+    </style>
+
+    <style name="Theme.CastButton" parent="Theme.MediaRouter">
+        <item name="mediaRouteButtonTint">?android:attr/textColorPrimary</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.CastButton.Dark" parent="Theme.MediaRouter">
+        <item name="mediaRouteButtonTint">#FFFFFFFF</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+    </style>
+
 </resources>

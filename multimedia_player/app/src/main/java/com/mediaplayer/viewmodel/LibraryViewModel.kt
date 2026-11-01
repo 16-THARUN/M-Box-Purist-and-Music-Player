@@ -93,6 +93,15 @@ class LibraryViewModel @Inject constructor(
     val genres: StateFlow<List<GenreRow>> = trackDao.getGenres()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val years: StateFlow<List<YearRow>> = trackDao.getYears()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val composers: StateFlow<List<ComposerRow>> = trackDao.getComposers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val albumArtists: StateFlow<List<AlbumArtistRow>> = trackDao.getAlbumArtists()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val playlists: StateFlow<List<Playlist>> = playlistDao.getAllPlaylists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -173,6 +182,8 @@ class LibraryViewModel @Inject constructor(
     fun getTracksForAlbum(album: String): Flow<List<Track>> = trackDao.getByAlbum(album).map { sortTracks(it, _sortOrder.value) }
     fun getTracksForArtist(artist: String): Flow<List<Track>> = trackDao.getByArtist(artist).map { sortTracks(it, _sortOrder.value) }
     fun getTracksForGenre(genre: String): Flow<List<Track>>   = trackDao.getByGenre(genre).map { sortTracks(it, _sortOrder.value) }
+    fun getTracksForYear(year: Int): Flow<List<Track>>        = trackDao.getByYear(year).map { sortTracks(it, _sortOrder.value) }
+    fun getTracksForComposer(composer: String): Flow<List<Track>> = trackDao.getByComposer(composer).map { sortTracks(it, _sortOrder.value) }
 
     /** All tracks inside a specific on-device folder. */
     fun getTracksForFolder(folderPath: String): Flow<List<Track>> = trackDao.getByFolder(folderPath).map { sortTracks(it, _sortOrder.value) }
