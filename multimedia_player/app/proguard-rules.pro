@@ -1,0 +1,7 @@
+-keep class org.jaudiotagger.** { *; }
+-dontwarn org.jaudiotagger.**
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+-keep class com.arthenica.ffmpegkit.** { *; }
+-keep class com.arthenica.smartexception.** { *; }
+-dontwarn com.arthenica.**

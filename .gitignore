@@ -5,6 +5,10 @@ client_secret.json
 oauth.json
 *.jks
 *.keystore
+keystore.properties
+.kotlin/
+.artifacts/
+_backup_*/
 
 # =========================
 # Android & Gradle

@@ -1,0 +1,8 @@
+// Inside your Service/ViewModel
+fun playVinylSound() {
+    val mediaPlayer = MediaPlayer.create(context, R.raw.vinyl_scratch)
+    mediaPlayer.setOnCompletionListener { it.release() }
+    mediaPlayer.start()
+}
+
+// Call this when the seek bar state changes to 'dragging'
