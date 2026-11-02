@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mediaplayer.data.model.mboxVisualizerPresets
-import com.mediaplayer.viewmodel.PlayerViewModel
+import com.mediaplayer.data.model.PlayerController
 
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
@@ -25,11 +25,11 @@ import android.content.res.Configuration
 @Composable
 fun VisualizationModeSheet(
     onDismiss: () -> Unit,
-    onSettingsClick: () -> Unit, // 🔥 THE FIX: New dedicated navigation callback
-    viewModel: PlayerViewModel
+    onSettingsClick: () -> Unit,
+    controller: PlayerController? = null,
+    activeModeId: String = "circular_rings"
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val selectedPresetId = state.activeVisualizerMode
+    val selectedPresetId = activeModeId
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -90,7 +90,7 @@ fun VisualizationModeSheet(
                         preset = preset,
                         isSelected = preset.id == selectedPresetId,
                         onClick = {
-                            viewModel.setVisualizerMode(preset.id)
+                            controller?.setVisualizerMode(preset.id)
                             onDismiss() // 🔥 THE FIX: Close the bottom sheet after selection
                         },
                         onLikeClick = {

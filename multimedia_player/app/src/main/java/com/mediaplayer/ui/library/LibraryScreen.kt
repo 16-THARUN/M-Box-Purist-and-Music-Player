@@ -48,6 +48,9 @@ import com.mediaplayer.ui.components.*
 import com.mediaplayer.util.FileRelocationManager
 import com.mediaplayer.viewmodel.LibraryViewModel
 import com.mediaplayer.viewmodel.PlayerViewModel
+import com.mediaplayer.viewmodel.toNowPlayingState
+import com.mediaplayer.data.model.NowPlayingState
+import com.mediaplayer.data.model.CastConnectionState
 import com.mediaplayer.viewmodel.SortOrder
 import kotlinx.coroutines.launch
 
@@ -234,7 +237,7 @@ fun LibraryScreen(
 
             if (showPlayOnSheet) {
                 PlayOnDeviceBottomSheet(
-                    playerState = playerState,
+                    playerState = playerState?.toNowPlayingState() ?: NowPlayingState(),
                     onSelectOutputDevice = playerVm::selectOutputDevice,
                     onOpenOutputSettings = { },
                     onSelectCastRoute = { },

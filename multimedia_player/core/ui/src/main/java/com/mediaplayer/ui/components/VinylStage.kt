@@ -18,7 +18,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mediaplayer.ui.player.CircularSpectrumVisualizer
 import com.mediaplayer.util.DeviceState
-import com.mediaplayer.viewmodel.PlayerViewModel
+import com.mediaplayer.data.model.NowPlayingState
+import com.mediaplayer.data.model.PlayerController
 import kotlinx.coroutines.flow.StateFlow
 
 val ringVisualizerModes = setOf(
@@ -43,7 +44,7 @@ fun VinylStage(
     deviceState: DeviceState,
     isPlaying: Boolean,
     imageUri: String?,
-    playerState: PlayerViewModel.PlayerUiState,
+    playerState: NowPlayingState,
     onSeekTo: (Long) -> Unit,
     onPauseForDjHold: () -> Unit = {},
     onResumeAfterDjHold: () -> Unit = {},
@@ -51,7 +52,7 @@ fun VinylStage(
     vinylDiameterPx: Float,
     stageSizePx: Float,
     onStagePositioned: (Offset, Float) -> Unit,
-    playerVm: PlayerViewModel? = null,
+    playerVm: PlayerController? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current

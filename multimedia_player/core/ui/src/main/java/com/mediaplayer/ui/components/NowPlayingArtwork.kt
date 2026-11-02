@@ -37,7 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
-import com.mediaplayer.viewmodel.PlayerViewModel
+import com.mediaplayer.data.model.NowPlayingState
+import com.mediaplayer.data.model.PlayerController
 import kotlinx.coroutines.delay
 import kotlin.math.*
 
@@ -125,9 +126,7 @@ fun Modifier.turntableScratch(
                     target = (startPos + (turned * msPerDeg).toLong()).coerceIn(0L, maxPos)
                     scrubCb(target)
 
-                    if (com.mediaplayer.BuildConfig.DEBUG) {
-                        Log.i("MBoxTurn", "rawAngle=%.1f, delta=%.1f, totalTurned=%.1f, target=%d".format(a, d, turned, target))
-                    }
+                    Log.d("MBoxTurn", "rawAngle=%.1f, delta=%.1f, totalTurned=%.1f, target=%d".format(a, d, turned, target))
 
                     val now = change.uptimeMillis
                     if (now - lastSeekAt >= 120 && kotlin.math.abs(target - lastSeekPos) >= 250) {
@@ -151,13 +150,13 @@ fun Modifier.turntableScratch(
 fun NowPlayingArtwork(
     imageUri: String?,
     isPlaying: Boolean,
-    playerState: PlayerViewModel.PlayerUiState,
+    playerState: NowPlayingState,
     onSeekTo: (Long) -> Unit,
     onPauseForDjHold: () -> Unit = {},
     onResumeAfterDjHold: () -> Unit = {},
     displayMode: ArtworkDisplayMode = ArtworkDisplayMode.VINYL,
     onDisplayModeChange: ((ArtworkDisplayMode) -> Unit)? = null,
-    playerVm: PlayerViewModel? = null,
+    playerVm: PlayerController? = null,
     modifier: Modifier = Modifier
 ) {
     var isTransitioning by remember { mutableStateOf(false) }
@@ -243,7 +242,7 @@ fun SpinningVinyl(
     onPauseForDjHold: () -> Unit = {},
     onResumeAfterDjHold: () -> Unit = {},
     onDoubleTapModeSwitch: () -> Unit,
-    playerVm: PlayerViewModel? = null,
+    playerVm: PlayerController? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -306,14 +305,14 @@ fun SpinningVinyl(
                 onScrubPosition = { scrubPosition = it },
                 onSeek = { target ->
                     if (playerVm != null) {
-                        playerVm.seekLive(target, source = "turntable")
+                        playerVm?.seekLive(target, source = "turntable")
                     } else {
                         onSeekTo(target)
                     }
                 },
                 onScratchEnd = { target, wasPlaying ->
                     if (playerVm != null) {
-                        playerVm.seekFinal(target, resume = wasPlaying, source = "turntable")
+                        playerVm?.seekFinal(target, resume = wasPlaying, source = "turntable")
                     } else {
                         onSeekTo(target)
                     }
@@ -415,7 +414,7 @@ fun ClassicCoverArt(
 
 @Composable
 fun LyricsOverlay(
-    state: PlayerViewModel.PlayerUiState,
+    state: NowPlayingState,
     onSeekTo: (Long) -> Unit,
     onDoubleTapModeSwitch: () -> Unit,
     modifier: Modifier = Modifier

@@ -2895,3 +2895,32 @@ fun Long.toTimeString(): String {
     val s = TimeUnit.MILLISECONDS.toSeconds(this) % 60
     return "%d:%02d".format(m, s)
 }
+
+fun PlayerViewModel.PlayerUiState.toNowPlayingState(): NowPlayingState = NowPlayingState(
+    currentTrack = currentTrack,
+    isPlaying = isPlaying,
+    positionMs = positionMs,
+    durationMs = durationMs,
+    castState = castState,
+    castDeviceName = castDeviceName,
+    castErrorMessage = castErrorMessage,
+    repeatMode = repeatMode,
+    shuffleOn = shuffleOn,
+    eqEnabled = eqEnabled,
+    isVisualizerEnabled = isVisualizerEnabled,
+    activeVisualizerMode = activeVisualizerMode,
+    seekBarStyle = seekBarStyle,
+    vinylRotation = vinylRotation,
+    currentPlaylist = currentPlaylist,
+    currentTrackIndex = currentTrackIndex,
+    currentLyrics = currentLyrics,
+    rawLyricsText = rawLyricsText,
+    playingFromType = playingFromType,
+    playingFromName = playingFromName,
+    activeOutputDevice = activeOutputDevice,
+    tvDeviceName = tvDeviceName,
+    isMBoxTvConnected = isMBoxTvConnected,
+    isTvReconnecting = isTvReconnecting,
+    currentAudioSpec = currentAudioSpec,
+    signalPath = signalPath
+)

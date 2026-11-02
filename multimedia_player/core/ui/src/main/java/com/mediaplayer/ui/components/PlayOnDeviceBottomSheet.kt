@@ -31,7 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.mediarouter.media.MediaControlIntent
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
-import com.mediaplayer.viewmodel.PlayerViewModel
+import com.mediaplayer.data.model.NowPlayingState
+import com.mediaplayer.data.model.CastController
 
 
 data class DiscoveredCastRoute(
@@ -46,11 +47,11 @@ data class DiscoveredCastRoute(
 @ExperimentalMaterial3Api
 @Composable
 fun PlayOnDeviceBottomSheet(
-    playerState: PlayerViewModel.PlayerUiState,
+    playerState: NowPlayingState,
     onSelectOutputDevice: (String) -> Unit,
     onOpenOutputSettings: () -> Unit,
     onSelectCastRoute: (MediaRouter.RouteInfo) -> Unit,
-    playerVm: PlayerViewModel? = null,
+    playerVm: CastController? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -108,18 +109,20 @@ fun PlayOnDeviceBottomSheet(
                         playerState.tvDeviceName.isNotBlank() ||
                         playerState.activeOutputDevice == "m-box TV"
 
-    val castState = playerVm?.castState?.collectAsStateWithLifecycle()?.value
+    val tvVolumeUi = com.mediaplayer.cast.TvRemoteVolume.ui.collectAsStateWithLifecycle().value
+    var lyricsOnTv by remember { mutableStateOf(false) }
+    var ambientModeOnTv by remember { mutableStateOf(false) }
 
     if (showCastDebugOverlay) {
         CastDebugOverlay(
-            rttMs = castState?.rttMs ?: 0L,
-            latencyMs = castState?.latencyMs ?: 0L,
-            lastSeq = castState?.lastSeq ?: 0L,
-            tvPosSec = castState?.shownPositionSec ?: 0.0,
-            shownPosSec = castState?.shownPositionSec ?: 0.0,
-            driftMs = castState?.driftMs ?: 0L,
-            recentEvents = castState?.recentEvents ?: emptyList(),
-            recentCommands = castState?.recentCommands ?: emptyList(),
+            rttMs = 0L,
+            latencyMs = 0L,
+            lastSeq = 0L,
+            tvPosSec = 0.0,
+            shownPosSec = 0.0,
+            driftMs = 0L,
+            recentEvents = emptyList(),
+            recentCommands = emptyList(),
             onDismiss = { showCastDebugOverlay = false }
         )
     }
@@ -229,7 +232,7 @@ fun PlayOnDeviceBottomSheet(
                         // TV volume: only the phone's volume buttons (they press the TV's own volume keys,
                         // so the soundbar / Q-Symphony follows). No slider: it jumped the volume (2026-10-22).
                         Text(
-                            text = "TV volume ${castState?.tvVolume ?: "–"}${if (castState?.isMuted == true) " (muted)" else ""} · use the phone's volume buttons",
+                            text = "TV volume ${if (tvVolumeUi.active) tvVolumeUi.level else "–"}${if (tvVolumeUi.muted) " (muted)" else ""} · use the phone's volume buttons",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.7f)
                         )
@@ -244,8 +247,11 @@ fun PlayOnDeviceBottomSheet(
                         ) {
                             Text("Lyrics on TV", style = MaterialTheme.typography.bodyMedium, color = Color.White)
                             Switch(
-                                checked = castState?.lyricsOn ?: false,
-                                onCheckedChange = { playerVm.sendSetLyricsToTv(it) },
+                                checked = lyricsOnTv,
+                                onCheckedChange = {
+                                    lyricsOnTv = it
+                                    playerVm?.sendSetLyricsToTv(it)
+                                },
                                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF5722))
                             )
                         }
@@ -258,9 +264,10 @@ fun PlayOnDeviceBottomSheet(
                         ) {
                             Text("Ambient Cover (Calm Screen)", style = MaterialTheme.typography.bodyMedium, color = Color.White)
                             Switch(
-                                checked = castState?.displayMode == "ambient",
+                                checked = ambientModeOnTv,
                                 onCheckedChange = {
-                                    playerVm.sendSetDisplayModeToTv(if (it) "ambient" else "vinyl")
+                                    ambientModeOnTv = it
+                                    playerVm?.sendSetDisplayModeToTv(if (it) "ambient" else "vinyl")
                                 },
                                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF5722))
                             )

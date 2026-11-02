@@ -27,7 +27,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mediaplayer.viewmodel.toTimeString
+import com.mediaplayer.data.model.toTimeString
 
 @Composable
 fun PillSeekBar(

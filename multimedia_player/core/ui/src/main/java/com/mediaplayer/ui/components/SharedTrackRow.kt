@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.mediaplayer.data.model.Track
-import com.mediaplayer.viewmodel.toTimeString
+import com.mediaplayer.data.model.toTimeString
 
 fun cleanTrackTitle(title: String, uri: String = ""): String {
     var name = title.ifBlank { uri.substringAfterLast("/").substringAfterLast("\\") }

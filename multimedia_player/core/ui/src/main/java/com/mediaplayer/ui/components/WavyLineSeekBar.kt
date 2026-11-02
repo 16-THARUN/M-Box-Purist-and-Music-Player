@@ -22,7 +22,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.dp
-import com.mediaplayer.viewmodel.toTimeString
+import com.mediaplayer.data.model.toTimeString
 import kotlin.math.PI
 import kotlin.math.sin
 

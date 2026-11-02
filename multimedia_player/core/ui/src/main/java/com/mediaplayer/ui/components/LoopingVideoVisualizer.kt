@@ -23,7 +23,7 @@ import androidx.media3.datasource.RawResourceDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.mediaplayer.R
+import com.mbox.core.ui.R
 
 @OptIn(UnstableApi::class)
 @Composable

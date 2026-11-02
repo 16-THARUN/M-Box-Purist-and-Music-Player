@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mediaplayer.ui.components.LyricsContent
-import com.mediaplayer.viewmodel.PlayerViewModel
+import com.mediaplayer.data.model.NowPlayingState
+import com.mediaplayer.data.model.toTimeString
 
 enum class LyricsViewMode {
     SYNCED,
@@ -132,7 +133,7 @@ fun CustomDarkSegmentedSwitch(
 
 @Composable
 fun LyricsPage(
-    state: PlayerViewModel.PlayerUiState,
+    state: NowPlayingState,
     bgColor: Color,
     accentColor: Color,
     onSeekTo: (Long) -> Unit,
@@ -406,6 +407,32 @@ fun LyricsPage(
                 onSaveLyrics(it)
                 showEditDialog = false
             }
+        )
+    }
+}
+
+@Composable
+fun PremiumSeekSection(
+    state: NowPlayingState,
+    accentColor: Color,
+    timerTextColor: Color = Color.White.copy(alpha = 0.70f),
+    onSeekTo: (Long) -> Unit,
+    onShowAudioInfo: () -> Unit = {}
+) {
+    if (state.seekBarStyle == "wavy") {
+        com.mediaplayer.ui.components.WavyLineSeekBar(
+            currentPositionMs = state.positionMs,
+            totalDurationMs = state.durationMs,
+            isPlaying = state.isPlaying,
+            accentColor = accentColor,
+            onSeek = onSeekTo
+        )
+    } else {
+        com.mediaplayer.ui.components.PillSeekBar(
+            currentPositionMs = state.positionMs,
+            totalDurationMs = state.durationMs,
+            accentColor = accentColor,
+            onSeek = onSeekTo
         )
     }
 }

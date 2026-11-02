@@ -77,6 +77,7 @@ import com.mediaplayer.ui.theme.MediaPlayerTheme
 import com.mediaplayer.util.DeviceState
 import com.mediaplayer.viewmodel.PlayerViewModel
 import com.mediaplayer.viewmodel.toTimeString
+import com.mediaplayer.viewmodel.toNowPlayingState
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -321,7 +322,7 @@ fun NowPlayingScreen(
                 deviceState = state.deviceState,
                 isPlaying = state.isPlaying,
                 imageUri = state.currentTrack?.albumArtUri,
-                playerState = state,
+                playerState = state.toNowPlayingState(),
                 onSeekTo = vm::seekTo,
                 onPauseForDjHold = { vm.pauseForDjHold() },
                 onResumeAfterDjHold = { vm.resumeAfterDjHold() },
@@ -383,7 +384,7 @@ fun NowPlayingScreen(
         // 4. FULL LYRICS PAGE
         if (showFullLyricsPage) {
             LyricsPage(
-                state = state,
+                state = state.toNowPlayingState(),
                 bgColor = animatedBgColor,
                 accentColor = animatedAccentColor,
                 onSeekTo = vm::seekTo,
@@ -402,14 +403,15 @@ fun NowPlayingScreen(
             VisualizationModeSheet(
                 onDismiss = { showVisualizationSheet = false },
                 onSettingsClick = { },
-                viewModel = vm
+                controller = vm,
+                activeModeId = state.activeVisualizerMode
             )
         }
     }
 
     if (showAudioInfo) {
         PlayOnDeviceBottomSheet(
-            playerState = state,
+            playerState = state.toNowPlayingState(),
             onSelectOutputDevice = vm::selectOutputDevice,
             onOpenOutputSettings = { },
             onSelectCastRoute = { },

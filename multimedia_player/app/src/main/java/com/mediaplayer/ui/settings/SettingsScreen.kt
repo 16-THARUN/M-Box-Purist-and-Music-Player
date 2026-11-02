@@ -499,10 +499,12 @@ fun SettingsScreen(
     }
 
     if (showVisualizationSheet) {
+        val playerState by playerVm.state.collectAsStateWithLifecycle()
         VisualizationModeSheet(
             onDismiss = { showVisualizationSheet = false },
             onSettingsClick = onOpenVisualizerSettings, // 🔥 PASSING THE CALLBACK
-            viewModel = playerVm
+            controller = playerVm,
+            activeModeId = playerState.activeVisualizerMode
         )
     }
 
