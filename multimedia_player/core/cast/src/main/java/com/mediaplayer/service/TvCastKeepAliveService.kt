@@ -13,21 +13,8 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
-import com.mediaplayer.MainActivity
-import com.mediaplayer.R
+import com.mbox.core.cast.R
 
-/**
- * Keeps the phone app alive while M-Box on the TV is playing from it.
- *
- * Bug seen 2026-10-25 14:57 (videos + TV log): switching from M-Box to another app while casting ->
- * the TV lost the stream ("PLAYER_ERROR_CONNECTION_FAILED", cover "couldn't load", "PhoneDiscovery:
- * scanning"), and back in M-Box the phone showed "Select a track": Android had frozen/killed the
- * app. While casting the phone's own player is paused, so the media service is no longer a
- * foreground service and nothing protected the HTTP/WebSocket server on :8787 that the TV streams
- * from. This foreground service (type mediaPlayback, with a "Playing on <TV>" notification) plus a
- * Wi-Fi lock and a CPU wake lock keeps the server reachable with the app in the background or the
- * screen off. Started/stopped by TvRemoteVolume.setActive (casting to M-Box on/off).
- */
 class TvCastKeepAliveService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -73,8 +60,8 @@ class TvCastKeepAliveService : Service() {
                 description = "Shown while M-Box plays on your TV"; setShowBadge(false)
             })
         }
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: Intent(Intent.ACTION_MAIN)
+        val open = PendingIntent.getActivity(this, 0, launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification_small)
             .setContentTitle("Playing on $tvName")

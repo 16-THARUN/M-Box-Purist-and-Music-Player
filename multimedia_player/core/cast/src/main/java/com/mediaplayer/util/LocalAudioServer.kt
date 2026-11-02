@@ -108,7 +108,6 @@ class LocalAudioServer(
                 }
             }
 
-            // Embedded Picture Fallback using MediaMetadataRetriever if ContentResolver failed
             val trackUri = activeUri
             val trackFile = activeFile
             try {

@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Base64
 import android.util.Log
-import com.mediaplayer.data.prefs.PlayerPreferences
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -302,7 +301,6 @@ object SamsungTvManager {
             Log.w(TAG, "WebSocket 8002 exception: ${e.message}")
         }
 
-        // Fallback: HTTP POST
         return@withContext launchAppOnTv(context, tvIp, phoneIp)
     }
 
@@ -312,7 +310,6 @@ object SamsungTvManager {
             put("metaTag", "senderIp=$phoneIp&port=8787")
         }
 
-        // Try HTTP 8001 first
         try {
             val launchUrl = URL("http://$tvIp:8001/api/v2/applications/$APP_ID")
             val conn = launchUrl.openConnection() as HttpURLConnection
@@ -330,7 +327,6 @@ object SamsungTvManager {
             Log.w(TAG, "HTTP 8001 Launch failed (${e.message}), trying HTTPS 8002...")
         }
 
-        // Fallback: HTTPS 8002
         try {
             val launchUrl = URL("https://$tvIp:8002/api/v2/applications/$APP_ID")
             val conn = launchUrl.openConnection() as HttpsURLConnection

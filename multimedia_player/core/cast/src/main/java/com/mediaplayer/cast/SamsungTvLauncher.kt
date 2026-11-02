@@ -1,20 +1,5 @@
 package com.mediaplayer.cast
 
-// SamsungTvLauncher.kt — opens the M-Box app on a Samsung TV from the phone, like Spotify Connect.
-//
-// Flow (all steps logged with tag "MBoxCast"):
-//   1. GET http://<tv>:8001/api/v2/            -> TV name / model / MAC / power state
-//   2. (TV off/standby) Wake-on-LAN to its MAC, wait until /api/v2 answers
-//   3. wss://<tv>:8002/.../samsung.remote.control -> the TV shows "Allow / Deny" the first time
-//   4. ms.channel.connect -> save the token (no pop-up next time)
-//   5. ed.apps.launch MBoxTVApp1.MBox with metaTag "senderIp=<phone>&port=8787"
-//      (fallback: POST http://<tv>:8001/api/v2/applications/MBoxTVApp1.MBox)
-//   6. M-Box opens on the TV and connects back to the phone (TV_READY on our /cast-bridge).
-// The same remote-control socket also sends the TV remote's volume keys (sendKey("KEY_VOLUP")).
-//
-// Needs OkHttp: implementation("com.squareup.okhttp3:okhttp:4.12.0")
-// Manifest: INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, CHANGE_WIFI_MULTICAST_STATE
-
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Base64
@@ -44,10 +29,9 @@ object SamsungTvLauncher {
     private const val CLIENT_NAME = "M-Box"
     private const val PREFS = "mbox_tv"
 
-    /** What the caller sees while it runs (show it on the phone: "Accept on your TV", errors…). */
     interface Listener {
         fun onStatus(text: String) {}
-        fun onLaunched(tvName: String) {}            // launch sent; now wait for TV_READY on the cast bridge
+        fun onLaunched(tvName: String) {}
         fun onFailed(reason: String) {}
     }
 
@@ -59,8 +43,6 @@ object SamsungTvLauncher {
     private var remoteSocket: WebSocket? = null
     private var remoteIp: String? = null
 
-    // ---------- 1. TV info ----------
-    /** GET http://<ip>:8001/api/v2/ — works while M-Box is closed. Call from a background thread. */
     fun info(ip: String): TvInfo? {
         try {
             http.newCall(Request.Builder().url("http://$ip:8001/api/v2/").build()).execute().use { r ->
@@ -79,7 +61,6 @@ object SamsungTvLauncher {
         }
     }
 
-    // ---------- 2. Wake-on-LAN ----------
     fun wake(mac: String) {
         try {
             val m = mac.split(':', '-').map { it.toInt(16).toByte() }
@@ -93,16 +74,10 @@ object SamsungTvLauncher {
         } catch (e: Exception) { Log.i(TAG, "Wake-on-LAN failed: ${e.message}") }
     }
 
-    // ---------- 3–5. Connect (Allow/Deny), then open M-Box ----------
-    /**
-     * Opens M-Box on the TV at [ip]. Call from a background thread.
-     * [phoneIp] = this phone's Wi-Fi IP (see [phoneWifiIp]); [port] = the cast server port (8787).
-     */
     fun connectAndLaunch(context: Context, ip: String, phoneIp: String, port: Int, listener: Listener, launchApp: Boolean = true) {
         Log.i(TAG, if (launchApp) "tap: open M-Box on $ip (phone $phoneIp:$port)" else "8002: opening the remote-control socket for the volume keys")
         listener.onStatus("Connecting…")
 
-        // TV asleep? wake it first (needs the MAC saved from an earlier /api/v2 answer)
         var tv = info(ip)
         if (launchApp && (tv == null || tv.powerState?.equals("on", true) == false)) {
             val mac = tv?.mac ?: savedMac(context, ip)
@@ -123,23 +98,23 @@ object SamsungTvLauncher {
         val client = tvClient(ip)
         val launched = java.util.concurrent.atomic.AtomicBoolean(false)
         client.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
-            override fun onOpen(ws: WebSocket, response: Response) { Log.i(TAG, "8002: socket open, waiting for the TV's answer") }
+            override fun onOpen(webSocket: WebSocket, response: Response) { Log.i(TAG, "8002: socket open, waiting for the TV's answer") }
 
-            override fun onMessage(ws: WebSocket, text: String) {
+            override fun onMessage(webSocket: WebSocket, text: String) {
                 val msg = try { JSONObject(text) } catch (e: Exception) { return }
                 when (msg.optString("event")) {
                     "ms.channel.connect" -> {
                         val newToken = msg.optJSONObject("data")?.optString("token").orEmpty()
                         if (newToken.isNotBlank()) { saveToken(context, ip, newToken); Log.i(TAG, "8002: ms.channel.connect — allowed, token saved") }
                         else Log.i(TAG, "8002: ms.channel.connect — allowed")
-                        remoteSocket = ws; remoteIp = ip
-                        if (launchApp && launched.compareAndSet(false, true)) sendLaunch(ws, ip, phoneIp, port, found.name, listener)
+                        remoteSocket = webSocket; remoteIp = ip
+                        if (launchApp && launched.compareAndSet(false, true)) sendLaunch(webSocket, ip, phoneIp, port, found.name, listener)
                     }
                     "ms.channel.unauthorized" -> {
                         Log.i(TAG, "8002: ms.channel.unauthorized — the TV said no")
                         clearToken(context, ip)
                         listener.onFailed("The TV said no. Allow M-Box in the TV's Device Connection Manager settings, then try again.")
-                        ws.close(1000, null)
+                        webSocket.close(1000, null)
                     }
                     "ms.channel.timeOut" -> { Log.i(TAG, "8002: Allow/Deny timed out on the TV"); listener.onFailed("No answer on the TV (Allow/Deny). Try again.") }
                     "ed.apps.launch" -> { Log.i(TAG, "launch reply: ${text.take(300)}") }
@@ -153,10 +128,9 @@ object SamsungTvLauncher {
                 }
             }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.i(TAG, "8002: failed: ${t.javaClass.simpleName}: ${t.message} (HTTP ${response?.code})")
-                if (remoteSocket === ws) remoteSocket = null
-                // The remote-control socket failed: try the REST launch instead
+                if (remoteSocket === webSocket) remoteSocket = null
                 if (launchApp && launched.compareAndSet(false, true)) {
                     if (restLaunch(ip)) listener.onLaunched(found.name)
                     else listener.onFailed("Couldn't open M-Box on the TV (${t.message}).")
@@ -176,26 +150,18 @@ object SamsungTvLauncher {
         return ws.send(msg.toString()).also { Log.i(TAG, "launch sent (ed.apps.launch $actionType $APP_ID, senderIp=$phoneIp port=$port) ok=$it") }
     }
 
-    // ---------- launch ----------
     @Volatile private var tvReadyAt = 0L
     @Volatile private var launchStartedAt = 0L
-    /** Call when M-Box connects back to the phone (TV_READY): stops the launch retries. */
     fun noteTvReady() {
         tvReadyAt = System.currentTimeMillis()
         if (launchStartedAt > 0) { Log.i(TAG, "launch: M-Box connected ${(tvReadyAt - launchStartedAt) / 100 / 10.0} s after the launch"); launchStartedAt = 0 }
     }
 
-    /**
-     * Seen on the QN85C (2026-10-21): DEEP_LINK does NOT start M-Box when it's closed, the REST launch
-     * does (~1.5 s). DEEP_LINK only reaches M-Box once it's running, and it carries the phone's address
-     * (senderIp/port), so the TV connects at once instead of searching. So: REST first, then DEEP_LINK
-     * as soon as M-Box is running, repeated every 2 s until TV_READY.
-     */
     private fun sendLaunch(ws: WebSocket, ip: String, phoneIp: String, port: Int, tvName: String, listener: Listener) {
         val t0 = System.currentTimeMillis(); launchStartedAt = t0; tvReadyAt = 0L
         listener.onStatus("Opening M-Box on $tvName…")
         val before = appStatus(ip)
-        if (before.startsWith("running")) emitLaunch(ws, "DEEP_LINK", phoneIp, port)   // already running: bring it to the front
+        if (before.startsWith("running")) emitLaunch(ws, "DEEP_LINK", phoneIp, port)
         else restLaunch(ip)
         listener.onLaunched(tvName)
         Thread {
@@ -208,9 +174,7 @@ object SamsungTvLauncher {
                 val now = System.currentTimeMillis()
                 if (st.startsWith("running") && now - lastDeepLink > 2000) {
                     lastDeepLink = now; deepLinks++
-                    emitLaunch(ws, "DEEP_LINK", phoneIp, port)   // hands M-Box the phone's address
-                    // Seen 2026-10-22 22:19: M-Box running in the background ignored 5 DEEP_LINKs (10 s).
-                    // The REST launch brings it to the front, then the next DEEP_LINK reaches it.
+                    emitLaunch(ws, "DEEP_LINK", phoneIp, port)
                     if (deepLinks == 2 && !restFront) { restFront = true; Log.i(TAG, "launch: M-Box running but not connecting — REST launch to bring it to the front"); restLaunch(ip) }
                 } else if (!st.startsWith("running") && !restAgain && now - t0 > 6000) {
                     restAgain = true; Log.i(TAG, "launch: M-Box still not running after 6 s ($st) — REST launch again"); restLaunch(ip)
@@ -225,7 +189,6 @@ object SamsungTvLauncher {
     }
 
     @Volatile private var remoteTriedAt = 0L
-    /** Open only the remote-control socket (for the volume keys), e.g. when M-Box was opened by hand. */
     fun ensureRemote(context: Context, ip: String) {
         if (remoteSocket != null && remoteIp == ip) return
         val now = System.currentTimeMillis(); if (now - remoteTriedAt < 10_000) return; remoteTriedAt = now
@@ -234,7 +197,6 @@ object SamsungTvLauncher {
     }
 
     @Volatile private var lastStatus = ""
-    /** GET http://<tv>:8001/api/v2/applications/<appId> -> "running+visible", "running", "installed", "unknown app (404)", ... */
     fun appStatus(ip: String): String {
         return try {
             http.newCall(Request.Builder().url("http://$ip:8001/api/v2/applications/$APP_ID").build()).execute().use { r ->
@@ -250,7 +212,6 @@ object SamsungTvLauncher {
         } catch (e: Exception) { Log.i(TAG, "app status failed: ${e.message}"); "error" }
     }
 
-    /** Fallback: REST launch (no data passed; the TV then finds the phone itself). */
     fun restLaunch(ip: String): Boolean {
         return try {
             http.newCall(Request.Builder().url("http://$ip:8001/api/v2/applications/$APP_ID")
@@ -260,8 +221,6 @@ object SamsungTvLauncher {
         } catch (e: Exception) { Log.i(TAG, "REST launch failed: ${e.message}"); false }
     }
 
-    // ---------- TV remote keys (volume) over the same socket ----------
-    /** e.g. sendKey("KEY_VOLUP"), "KEY_VOLDOWN", "KEY_MUTE". Returns false if the socket isn't open. */
     fun hasRemote(): Boolean = remoteSocket != null
     fun sendKey(key: String): Boolean {
         val ws = remoteSocket ?: run { Log.i(TAG, "key $key: remote-control socket not open"); return false }
@@ -270,8 +229,6 @@ object SamsungTvLauncher {
         return ws.send(msg.toString()).also { Log.i(TAG, "key $key sent=$it") }
     }
 
-    // ---------- helpers ----------
-    /** The TV's certificate is self-signed: trust it ONLY for this TV's IP. */
     private fun tvClient(ip: String): OkHttpClient {
         val trustAll = object : X509TrustManager {
             override fun checkClientTrusted(c: Array<X509Certificate>, a: String) {}
@@ -286,7 +243,6 @@ object SamsungTvLauncher {
             .pingInterval(20, TimeUnit.SECONDS).build()
     }
 
-    /** This phone's Wi-Fi IPv4 address (what the TV must connect back to). */
     fun phoneWifiIp(context: Context): String? {
         try {
             NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback && it.name.startsWith("wlan") }

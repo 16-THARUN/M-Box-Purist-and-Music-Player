@@ -58,6 +58,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:lyrics"))
     implementation(project(":core:audio"))
+    implementation(project(":core:cast"))
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.ui.graphics)
     // Media3
