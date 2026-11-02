@@ -54,7 +54,6 @@ object Eac3Transcoder {
             return@withContext track.uri
         }
 
-        // Check if phone has native hardware Dolby decoder
         if (hasNativeDolbyDecoder(dolbyInfo.isJoc)) {
             Log.i(TAG, "Using Native Device Dolby Decoder for track '${track.title}' (isJoc=${dolbyInfo.isJoc}, objects=${dolbyInfo.atmosObjects})")
             return@withContext track.uri
@@ -101,7 +100,6 @@ object Eac3Transcoder {
 
         withContext(Dispatchers.Main) { onProgress("Preparing audio…") }
 
-        // Primary FFmpeg command with -drc_scale 0 (full dynamic range) and -downmix stereo
         val primaryCmd = "-y -drc_scale 0 -downmix stereo -i \"$ffmpegInputPath\" -map 0:a:0 -vn -sample_fmt s32 -c:a flac \"${outputFile.absolutePath}\""
         val fallbackCmd = "-y -drc_scale 0 -i \"$ffmpegInputPath\" -map 0:a:0 -vn -af \"pan=stereo|FL=FL+0.707*FC+0.707*SL|FR=FR+0.707*FC+0.707*SR\" -sample_fmt s32 -c:a flac \"${outputFile.absolutePath}\""
 

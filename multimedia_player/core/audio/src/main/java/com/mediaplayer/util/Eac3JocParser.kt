@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 data class DolbyInfo(
     val isDolby: Boolean,
     val isJoc: Boolean,
-    val codecName: String, // "E-AC3 JOC" | "E-AC3" | "AC-3" | "None"
+    val codecName: String,
     val atmosObjects: Int? = null,
     val channels: Int = 6,
     val sampleRate: Int = 48000,
@@ -36,7 +36,6 @@ object Eac3JocParser {
         val mimeLower = track.mimeType.lowercase()
         val uriLower = track.uri.lowercase()
 
-        // Non-Dolby files bypass MediaExtractor I/O completely (0ms)
         if (!mimeLower.contains("eac3") && !mimeLower.contains("ac3") && !mimeLower.contains("ec3") &&
             !uriLower.contains("eac3") && !uriLower.contains("ac3") && !uriLower.contains("ec3")
         ) {

@@ -39,8 +39,6 @@ class EqualizerManager @Inject constructor() {
 
     fun getEqualizer(): Equalizer? = equalizer
 
-    // ── Attach / Release ──────────────────────────────────────
-
     fun attach(sessionId: Int) {
         if (sessionId <= 0) {
             Log.i("MBoxEq", "skipped (no session or uninitialized: $sessionId)")
@@ -107,8 +105,6 @@ class EqualizerManager @Inject constructor() {
         loudnessEnhancer = null
     }
 
-    // ── Equalizer ─────────────────────────────────────────────
-
     fun setEnabled(enabled: Boolean) {
         runCatching { equalizer?.enabled = enabled }
     }
@@ -172,8 +168,6 @@ class EqualizerManager @Inject constructor() {
         }
     }
 
-    // ── Bass boost ────────────────────────────────────────────
-
     fun setBassBoostEnabled(enabled: Boolean, scope: CoroutineScope) {
         val bb = bassBoost ?: return
         
@@ -210,8 +204,6 @@ class EqualizerManager @Inject constructor() {
         }
     }
 
-    // ── Virtualizer (surround) ───────────────────────────────
-
     fun setVirtualizerEnabled(enabled: Boolean) {
         runCatching { virtualizer?.enabled = enabled }
     }
@@ -219,8 +211,6 @@ class EqualizerManager @Inject constructor() {
     fun setVirtualizerStrength(strength: Int) {
         runCatching { virtualizer?.setStrength(strength.toShort()) }
     }
-
-    // ── Loudness enhancer ─────────────────────────────────────
 
     fun setLoudnessEnhancerEnabled(enabled: Boolean) {
         runCatching { loudnessEnhancer?.enabled = enabled }

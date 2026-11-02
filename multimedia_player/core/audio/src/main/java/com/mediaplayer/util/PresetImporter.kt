@@ -14,7 +14,6 @@ object PresetImporter {
                 it?.readText()
             } ?: return emptyList()
 
-            // Handle both Array [...] and single Object {...} formats
             val trimmedJson = jsonString.trim()
             if (trimmedJson.startsWith("[")) {
                 val jsonArray = JSONArray(trimmedJson)

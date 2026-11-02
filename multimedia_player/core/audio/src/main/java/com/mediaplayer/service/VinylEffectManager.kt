@@ -4,7 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.util.Log
-import com.mediaplayer.R
+import com.mbox.core.audio.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,8 +22,6 @@ class VinylEffectManager @Inject constructor(
 
             mediaPlayer?.release()
             
-            // Use constructor + setDataSource + prepare to be safer than .create()
-            // which can return null if preparation fails.
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()

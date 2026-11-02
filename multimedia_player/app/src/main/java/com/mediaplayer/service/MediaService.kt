@@ -40,6 +40,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediaplayer.MainActivity
 import com.mediaplayer.R
+import com.mediaplayer.service.PlayerEngineFactory
 import com.mediaplayer.data.db.TrackDao
 import com.mediaplayer.data.model.Track
 import com.mediaplayer.util.DolbyCapabilityDetector
@@ -78,123 +79,21 @@ class MediaService : MediaLibraryService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val biquadEqProcessor = BiquadEqAudioProcessor()
+    lateinit var biquadEqProcessor: BiquadEqAudioProcessor
 
     @UnstableApi
     override fun onCreate() {
         super.onCreate()
 
-        // Step 0: Query and Log Dolby Capabilities
-        DolbyCapabilityDetector.queryCapabilities(this)
-
-        // 1. Setup the Hardware-Aware AudioSink
-        val audioSink = DefaultAudioSink.Builder(this)
-            .setAudioProcessors(arrayOf(biquadEqProcessor, visualizerManager.pcmAnalysisProcessor))
-            .build()
-
-        // 2. Force MediaCodec over FFmpeg for Bitstream Passthrough
-        val renderersFactory = object : DefaultRenderersFactory(this) {
-            override fun buildAudioRenderers(
-                context: Context,
-                extensionRendererMode: Int,
-                mediaCodecSelector: MediaCodecSelector,
-                enableDecoderFallback: Boolean,
-                audioSink: AudioSink,
-                eventHandler: Handler,
-                eventListener: AudioRendererEventListener,
-                out: ArrayList<Renderer>
-            ) {
-                // Put the hardware bitstream renderer at Index 0
-                out.add(
-                    MediaCodecAudioRenderer(
-                        context,
-                        mediaCodecSelector,
-                        enableDecoderFallback,
-                        eventHandler,
-                        eventListener,
-                        audioSink
-                    )
-                )
-                // Allow software fallback (FFmpeg) only after hardware fails
-                super.buildAudioRenderers(
-                    context,
-                    EXTENSION_RENDERER_MODE_OFF,
-                    mediaCodecSelector,
-                    enableDecoderFallback,
-                    audioSink,
-                    eventHandler,
-                    eventListener,
-                    out
-                )
-            }
-        }
-
-        // 3. The Atmos Track Selector: Unlock the channel ceiling & Enable Offload
-        val audioOffloadPreferences = AudioOffloadPreferences.Builder()
-            .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
-            .setIsGaplessSupportRequired(false) // GAPLESS usually breaks Atmos bitstream
-            .build()
-
-        val trackSelector = DefaultTrackSelector(this).apply {
-            setParameters(
-                buildUponParameters()
-                    .setMaxAudioChannelCount(Int.MAX_VALUE)
-                    .setAudioOffloadPreferences(audioOffloadPreferences)
-                    .build()
-            )
-        }
-
-        val stableAudioSessionId = androidx.media3.common.util.Util.generateAudioSessionIdV21(this)
-
-        // 4. Build the Player
-        player = ExoPlayer.Builder(this, renderersFactory)
-            .setTrackSelector(trackSelector)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .setUsage(C.USAGE_MEDIA)
-                    .build(),
-                /* handleAudioFocus = */ true
-            )
-            .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
-            .build()
-
-        player.audioSessionId = stableAudioSessionId
-        player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
-
-        // Attach Equalizer once for stable service lifetime audio session
-        eqManager.attach(stableAudioSessionId)
-
-        player.addAnalyticsListener(EventLogger())
-
-        player.addAnalyticsListener(object : AnalyticsListener {
-            override fun onAudioDecoderInitialized(
-                eventTime: AnalyticsListener.EventTime,
-                decoderName: String,
-                initializedTimestampMs: Long,
-                initializationDurationMs: Long
-            ) {
-                Log.i("AudioPipeline", "Live Audio Decoder Initialized: $decoderName")
-                currentDecoderName = decoderName
-            }
-
-            override fun onAudioSinkError(
-                eventTime: AnalyticsListener.EventTime,
-                audioSinkError: Exception
-            ) {
-                Log.e("AudioPipeline", "AudioSink Error: ${audioSinkError.message}", audioSinkError)
-                currentAudioError = "AudioSink Error: ${audioSinkError.message}"
-            }
-
-            override fun onPlayerError(
-                eventTime: AnalyticsListener.EventTime,
-                error: PlaybackException
-            ) {
-                Log.e("AudioPipeline", "Player Error: ${error.errorCodeName} - ${error.message}", error)
-                currentAudioError = "Player Error: ${error.message}"
-            }
-        })
+        val engineResult = PlayerEngineFactory.createExoPlayer(
+            context = this,
+            eqManager = eqManager,
+            visualizerManager = visualizerManager,
+            onDecoderInitialized = { currentDecoderName = it },
+            onAudioError = { currentAudioError = it }
+        )
+        player = engineResult.player
+        biquadEqProcessor = engineResult.biquadEqProcessor
 
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
