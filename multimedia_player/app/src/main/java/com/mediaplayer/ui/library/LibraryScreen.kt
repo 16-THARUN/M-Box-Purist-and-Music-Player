@@ -425,8 +425,8 @@ fun LibraryScreenHeader(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            val isDeviceConnected = playerState?.activeOutputDevice == "m-box TV" || playerState?.castState == PlayerViewModel.CastConnectionState.CONNECTED
-            val isDeviceConnecting = playerState?.castState == PlayerViewModel.CastConnectionState.CONNECTING
+            val isDeviceConnected = playerState?.activeOutputDevice == "m-box TV" || playerState?.castState == CastConnectionState.CONNECTED
+            val isDeviceConnecting = playerState?.castState == CastConnectionState.CONNECTING
             val accentColor = MaterialTheme.colorScheme.primary
 
             IconButton(onClick = onShowCastSheet) {

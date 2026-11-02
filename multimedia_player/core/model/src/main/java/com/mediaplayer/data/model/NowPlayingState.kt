@@ -1,0 +1,30 @@
+package com.mediaplayer.data.model
+
+data class NowPlayingState(
+    val currentTrack: Track? = null,
+    val isPlaying: Boolean = false,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+    val castState: CastConnectionState = CastConnectionState.IDLE,
+    val castDeviceName: String = "",
+    val castErrorMessage: String = "",
+    val repeatMode: Int = 0,
+    val shuffleOn: Boolean = false,
+    val eqEnabled: Boolean = true,
+    val isVisualizerEnabled: Boolean = true,
+    val activeVisualizerMode: String = "circular_rings",
+    val seekBarStyle: String = "pill",
+    val vinylRotation: Float = 0f,
+    val currentPlaylist: List<Track> = emptyList(),
+    val currentTrackIndex: Int = -1,
+    val currentLyrics: List<LyricLine> = emptyList(),
+    val rawLyricsText: String = "",
+    val playingFromType: String = "All Songs",
+    val playingFromName: String = "All Songs",
+    val activeOutputDevice: String = "This phone",
+    val tvDeviceName: String = "m-box TV",
+    val isMBoxTvConnected: Boolean = false,
+    val isTvReconnecting: Boolean = false,
+    val currentAudioSpec: String = "Detecting...",
+    val signalPath: AudioSignalPath? = null
+)

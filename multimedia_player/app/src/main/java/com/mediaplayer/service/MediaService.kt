@@ -539,9 +539,10 @@ class MediaService : MediaLibraryService() {
             .setIsPlayable(true)
 
         // 🔥 THE FIX: Downscale artwork to prevent Android Auto Binder IPC crashes
-        if (albumArtUri != null) {
+        val artUri: String? = albumArtUri
+        if (artUri != null) {
             try {
-                val bitmap = BitmapFactory.decodeFile(albumArtUri.removePrefix("file://"))
+                val bitmap = BitmapFactory.decodeFile(artUri.removePrefix("file://"))
                 if (bitmap != null) {
                     val scaled = getScaledArt(bitmap)
                     val bytes = scaled.toBytes()

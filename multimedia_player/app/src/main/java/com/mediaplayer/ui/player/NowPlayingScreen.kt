@@ -69,6 +69,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.mediaplayer.R
 import com.mediaplayer.data.model.AudioSignalPath
 import com.mediaplayer.data.model.Track
+import com.mediaplayer.data.model.CastConnectionState
 import com.mediaplayer.ui.common.CastButton
 import com.mediaplayer.ui.components.*
 import com.mediaplayer.ui.theme.MBoxOrange
@@ -473,7 +474,7 @@ fun PortraitControlsOverlay(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                if (state.castState == PlayerViewModel.CastConnectionState.IDLE) {
+                if (state.castState == CastConnectionState.IDLE) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -517,8 +518,8 @@ fun PortraitControlsOverlay(
                     accentColor = accentColor
                 )
 
-                val isDeviceConnected = state.activeOutputDevice == "m-box TV" || state.castState == PlayerViewModel.CastConnectionState.CONNECTED
-                val isDeviceConnecting = state.castState == PlayerViewModel.CastConnectionState.CONNECTING
+                val isDeviceConnected = state.activeOutputDevice == "m-box TV" || state.castState == CastConnectionState.CONNECTED
+                val isDeviceConnecting = state.castState == CastConnectionState.CONNECTING
 
                 IconButton(onClick = onShowAudioInfo) {
                     Icon(
@@ -686,7 +687,7 @@ fun PortraitControlsOverlay(
                         }
                     }
 
-                    if (state.castState == PlayerViewModel.CastConnectionState.CONNECTED && vm != null) {
+                    if (state.castState == CastConnectionState.CONNECTED && vm != null) {
                         val castVol by vm.castVolume.collectAsStateWithLifecycle()
                         Spacer(modifier = Modifier.height(16.dp))
                         CastVolumeControl(
@@ -772,8 +773,8 @@ fun LandscapeControlsOverlay(
                     modifier = Modifier.align(Alignment.CenterEnd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val isDeviceConnected = state.activeOutputDevice == "m-box TV" || state.castState == PlayerViewModel.CastConnectionState.CONNECTED
-                    val isDeviceConnecting = state.castState == PlayerViewModel.CastConnectionState.CONNECTING
+                    val isDeviceConnected = state.activeOutputDevice == "m-box TV" || state.castState == CastConnectionState.CONNECTED
+                    val isDeviceConnecting = state.castState == CastConnectionState.CONNECTING
 
                     IconButton(onClick = onShowAudioInfo) {
                         Icon(
@@ -1203,23 +1204,23 @@ fun PlaybackControlRow(
 
 @Composable
 fun CastStatusPill(
-    castState: PlayerViewModel.CastConnectionState,
+    castState: CastConnectionState,
     deviceName: String?,
     errorMessage: String?,
     accentColor: Color
 ) {
-    if (castState == PlayerViewModel.CastConnectionState.IDLE) return
+    if (castState == CastConnectionState.IDLE) return
 
     val text = when (castState) {
-        PlayerViewModel.CastConnectionState.CONNECTING -> "Connecting to $deviceName..."
-        PlayerViewModel.CastConnectionState.CONNECTED -> "Casting to $deviceName"
-        PlayerViewModel.CastConnectionState.ERROR -> "Cast failed: ${errorMessage ?: "Unknown error"}"
+        CastConnectionState.CONNECTING -> "Connecting to $deviceName..."
+        CastConnectionState.CONNECTED -> "Casting to $deviceName"
+        CastConnectionState.ERROR -> "Cast failed: ${errorMessage ?: "Unknown error"}"
         else -> ""
     }
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (castState == PlayerViewModel.CastConnectionState.CONNECTED) accentColor.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.4f),
+        color = if (castState == CastConnectionState.CONNECTED) accentColor.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.4f),
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
     ) {
         Text(

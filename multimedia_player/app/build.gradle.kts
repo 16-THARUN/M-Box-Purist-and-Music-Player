@@ -55,6 +55,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core:model"))
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.ui.graphics)
     // Media3

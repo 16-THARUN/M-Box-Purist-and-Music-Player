@@ -46,6 +46,10 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import com.mediaplayer.data.model.Track
 import com.mediaplayer.data.model.LyricsParser
+import com.mediaplayer.data.model.PlayerController
+import com.mediaplayer.data.model.CastController
+import com.mediaplayer.data.model.CastConnectionState
+import com.mediaplayer.data.model.NowPlayingState
 import com.mediaplayer.data.network.RetrofitClient
 import com.mediaplayer.data.network.lyrics.LrcLibResponse
 import com.mediaplayer.data.repository.LibraryRepository
@@ -116,6 +120,7 @@ data class CastState(
     val recentCommands: List<String> = emptyList()
 )
 
+@OptIn(UnstableApi::class)
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val browserFuture: ListenableFuture<MediaBrowser>,
@@ -131,18 +136,12 @@ class PlayerViewModel @Inject constructor(
     private val deviceStateMonitor: DeviceStateMonitor,
     private val savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context
-) : ViewModel() {
+) : ViewModel(), PlayerController, CastController {
 
     private val VISUALIZER_MODE_KEY = "visualizer_mode_id"
     val activeVisualizerMode: StateFlow<String> = savedStateHandle.getStateFlow(VISUALIZER_MODE_KEY, "circular_rings")
 
     private val _eqBands = MutableStateFlow(FloatArray(10) { 0f })
-    enum class CastConnectionState {
-        IDLE,
-        CONNECTING,
-        CONNECTED,
-        ERROR
-    }
 
     data class PlayerUiState(
         val currentTrack: Track? = null,
@@ -219,8 +218,8 @@ class PlayerViewModel @Inject constructor(
     val fftFlow: StateFlow<FloatArray> = visualizerManager.fftFlow
     val deviceState = deviceStateMonitor.stateFlow
 
-    fun expandPlayer() { _isPlayerModalOpen.value = true }
-    fun collapsePlayer() { _isPlayerModalOpen.value = false }
+    override fun expandPlayer() { _isPlayerModalOpen.value = true }
+    override fun collapsePlayer() { _isPlayerModalOpen.value = false }
 
     private var browser: MediaBrowser? = null
     private var nativeEqualizer: Equalizer? = null 
@@ -1087,7 +1086,7 @@ class PlayerViewModel @Inject constructor(
         if (on != castState.value.isMuted) com.mediaplayer.cast.SamsungTvLauncher.sendKey("KEY_MUTE")
     }
 
-    fun sendSetLyricsToTv(on: Boolean) {
+    override fun sendSetLyricsToTv(on: Boolean) {
         if (applyingRemoteState) return
         val server = mBoxCastServer ?: return
         val msg = JSONObject().apply {
@@ -1097,7 +1096,7 @@ class PlayerViewModel @Inject constructor(
         server.broadcastMessage(msg.toString())
     }
 
-    fun sendSetDisplayModeToTv(mode: String) {
+    override fun sendSetDisplayModeToTv(mode: String) {
         if (applyingRemoteState) return
         val server = mBoxCastServer ?: return
         val msg = JSONObject().apply {
@@ -1626,12 +1625,12 @@ class PlayerViewModel @Inject constructor(
 
     // ── Playback controls ─────────────────────────────────────
 
-    fun playTracks(
+    override fun playTracks(
         tracks: List<Track>,
-        startIndex: Int = 0,
-        sourceType: String = "All Songs",
-        sourceName: String = "All Songs",
-        sourcePath: String = ""
+        startIndex: Int,
+        sourceType: String,
+        sourceName: String,
+        sourcePath: String
     ) {
         val activeTrack = tracks.getOrNull(startIndex)
         Log.d("CastDebug", "currentTrackUriStr SET to: '${activeTrack?.uri}' from ${Thread.currentThread().name}")
@@ -1881,7 +1880,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun togglePlayPause() {
+    override fun togglePlayPause() {
         if (_state.value.activeOutputDevice == "m-box TV") {
             if (_state.value.isPlaying) {
                 sendTvControl("PAUSE")
@@ -1920,7 +1919,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun setVisualizerMode(mode: String) {
+    override fun setVisualizerMode(mode: String) {
         savedStateHandle[VISUALIZER_MODE_KEY] = mode
         _state.update { it.copy(activeVisualizerMode = mode) }
         viewModelScope.launch {
@@ -2040,7 +2039,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun skipToQueueItem(index: Int) {
+    override fun skipToQueueItem(index: Int) {
         if (_state.value.activeOutputDevice == "m-box TV") {
             sendSkipToTv(index)
         } else {
@@ -2056,6 +2055,10 @@ class PlayerViewModel @Inject constructor(
 
     private var lastTvSeekAt = 0L
 
+    override fun seekTo(positionMs: Long) {
+        seekTo(positionMs, "ui")
+    }
+
     fun seekTo(ms: Long, source: String = "ui") {
         val target = ms.coerceAtLeast(0L)
         if (com.mediaplayer.BuildConfig.DEBUG) {
@@ -2069,7 +2072,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun seekLive(targetMs: Long, source: String = "turntable") {
+    override fun seekLive(targetMs: Long, source: String) {
         val target = targetMs.coerceAtLeast(0L)
         if (com.mediaplayer.BuildConfig.DEBUG) {
             Log.i("MBoxSeek", "SEEK LIVE: target=${target}ms, source=$source")
@@ -2086,7 +2089,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun seekFinal(targetMs: Long, resume: Boolean, source: String = "turntable") {
+    override fun seekFinal(targetMs: Long, resume: Boolean, source: String) {
         val target = targetMs.coerceAtLeast(0L)
         if (com.mediaplayer.BuildConfig.DEBUG) {
             Log.i("MBoxSeek", "SEEK FINAL: target=${target}ms, resume=$resume, source=$source")
@@ -2104,17 +2107,55 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun pauseForDjHold() {
+    override fun pauseForDjHold() {
         if (_state.value.isPlaying) {
             browser?.pause()
             _state.update { it.copy(isPlaying = false) }
         }
     }
 
-    fun resumeAfterDjHold() {
+    override fun resumeAfterDjHold() {
         if (!_state.value.isPlaying) {
             browser?.play()
             _state.update { it.copy(isPlaying = true) }
+        }
+    }
+
+    override fun play() {
+        if (_state.value.activeOutputDevice == "m-box TV") {
+            sendTvControl("RESUME", "user play")
+        } else if (_state.value.isCasting && castPlayer != null) {
+            castPlayer?.play()
+        } else {
+            browser?.play()
+        }
+    }
+
+    override fun pause() {
+        if (_state.value.activeOutputDevice == "m-box TV") {
+            sendTvControl("PAUSE", "user pause")
+        } else if (_state.value.isCasting && castPlayer != null) {
+            castPlayer?.pause()
+        } else {
+            browser?.pause()
+        }
+    }
+
+    override fun next() {
+        if (_state.value.activeOutputDevice == "m-box TV") {
+            sendNextToTv()
+        } else {
+            browser?.seekToNextMediaItem()
+        }
+    }
+
+    override fun previous() {
+        if (_state.value.activeOutputDevice == "m-box TV") {
+            sendPrevToTv()
+        } else {
+            browser?.run {
+                if (currentPosition > 3000L) seekTo(0L) else seekToPreviousMediaItem()
+            }
         }
     }
 
@@ -2803,7 +2844,7 @@ class PlayerViewModel @Inject constructor(
         applyLyricsToUi(fallbackText)
     }
 
-    fun updateLyricsManually(trackId: Long, newLrcText: String) {
+    override fun updateLyricsManually(trackId: Long, newLrcText: String) {
         viewModelScope.launch(Dispatchers.IO) {
             saveLyricsToLocalCache(trackId.toString(), newLrcText)
             trackDao.updateLyrics(trackId, newLrcText) // Keep Room in sync too
