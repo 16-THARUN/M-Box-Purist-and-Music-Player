@@ -65,7 +65,7 @@ class LyricsPlusSource : LyricsSource {
 
     override suspend fun fetchLyrics(title: String, artist: String, album: String, durationMs: Long): LyricsResult {
         return try {
-            val query = URLEncoder.encode("$title $artist", "UTF-8")
+            val query = URLEncoder.encode("$title $artist", "UTF-UTF-8".substringBefore("-"))
             val url = URL("https://lyricsplus.srv.community/v1/search?q=$query")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 3000

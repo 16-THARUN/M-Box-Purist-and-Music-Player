@@ -26,7 +26,6 @@ object RetrofitClient {
             .build()
     }
 
-    // Lazy initialization ensures this is only built when first needed
     val lrcLibApiService: LrcLibApiService by lazy {
         Retrofit.Builder()
             .baseUrl(LRCLIB_URL)

@@ -2,7 +2,6 @@ package com.mediaplayer.data.repository
 
 import com.mediaplayer.data.network.lyrics.LrcLibApiService
 import com.mediaplayer.data.network.lyrics.LrcLibResponse
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,20 +25,6 @@ class LyricsRepository @Inject constructor(
                     if (text.isNotEmpty()) return text
                 }
             }
-
-            // Step B: Check embedded metadata tags using MediaMetadataRetriever
-            // Note: There is no standard SDK constant for lyrics in MediaMetadataRetriever.
-            // Some files might store it in other tags, but we'll focus on .lrc for now.
-            /*
-            val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(filePath)
-            val embeddedLyrics = retriever.extractMetadata(34) // 34 is often used for lyrics
-            retriever.release()
-
-            if (!embeddedLyrics.isNullOrBlank()) {
-                return embeddedLyrics
-            }
-            */
         } catch (e: Exception) {
             e.printStackTrace()
         }

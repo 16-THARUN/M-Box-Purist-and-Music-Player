@@ -20,3 +20,4 @@ dependencyResolutionManagement {
 rootProject.name = "MBoxPlayer"
 include(":app")
 include(":core:model")
+include(":core:lyrics")
