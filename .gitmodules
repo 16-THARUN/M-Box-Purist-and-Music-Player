@@ -1,0 +1,3 @@
+[submodule "multimedia_player/shared"]
+	path = multimedia_player/shared
+	url = https://github.com/16-THARUN/m-box-stream-version-.git

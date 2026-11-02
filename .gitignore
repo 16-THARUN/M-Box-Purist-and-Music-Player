@@ -47,3 +47,9 @@ caches/
 **/caches/
 .caches/
 **/.caches/
+
+# =========================
+# Non-Repository Apps / Files
+# =========================
+tizen_tv_app/
+LICENSE_OLD

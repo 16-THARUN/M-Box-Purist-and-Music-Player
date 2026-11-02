@@ -415,6 +415,7 @@ fun NowPlayingScreen(
             onSelectOutputDevice = vm::selectOutputDevice,
             onOpenOutputSettings = { },
             onSelectCastRoute = { },
+            castRoutes = rememberCastRoutes(),
             onDismiss = { showAudioInfo = false }
         )
     }

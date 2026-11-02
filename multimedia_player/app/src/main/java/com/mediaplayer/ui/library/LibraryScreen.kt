@@ -241,6 +241,7 @@ fun LibraryScreen(
                     onSelectOutputDevice = playerVm::selectOutputDevice,
                     onOpenOutputSettings = { },
                     onSelectCastRoute = { },
+                    castRoutes = rememberCastRoutes(),
                     onDismiss = { showPlayOnSheet = false }
                 )
             }
